@@ -172,7 +172,7 @@ def api_explore(check):
     current_year = datetime.now().year
 
     # Calculate the year from 10 years ago
-    ten_years_ago = current_year - 10
+    ten_years_ago = current_year - 30
 
     # codebook query
     if check == "codebook":
@@ -232,8 +232,8 @@ def api_explore(check):
             'Sierra Leone','Somalia','South Africa','South Sudan','Sudan',
             'Swaziland','Tanzania','Togo','Tunisia','Uganda','Zambia','Zimbabwe'
     ]
-    filtered_df = df[df['re_name'].isin(african_countries)]
-
+    # filtered_df = df[df['re_name'].isin(african_countries)]
+    filtered_df = df
     # Filter the DataFrame to get data from the previous 10 years
     filtered_df = filtered_df[df['year'] >= ten_years_ago]
 

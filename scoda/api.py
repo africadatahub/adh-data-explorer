@@ -171,11 +171,7 @@ def api_explore(check):
     # Calculate the current year
     current_year = datetime.now().year
 
-    # Calculate the year from 10 years ago
-    if request.args.get('year_ago'):
-        years_ago = current_year - int(request.args.get('year_ago'))
-    else:
-        years_ago = current_year - 10
+
 
     # codebook query
     if check == "codebook":
@@ -221,8 +217,15 @@ def api_explore(check):
 
     df = df.drop_duplicates()
 
-    # Filter the DataFrame to get data from the previous 10 years
-    filtered_df = df[df['year'] >= years_ago]
+    filtered_df = None
+    # Calculate the year from 10 years ago
+    if request.args.get('year_ago'):
+        years_ago = current_year - int(request.args.get('year_ago'))
+        # Filter the DataFrame to get data from the previous 10 years
+        filtered_df = df[df['year'] >= years_ago]
+    # else:
+    #     years_ago = current_year - 10
+    
 
     # Filter countries
     countries = []
@@ -241,7 +244,7 @@ def api_explore(check):
             'Sierra Leone','Somalia','South Africa','South Sudan','Sudan',
             'Swaziland','Tanzania','Togo','Tunisia','Uganda','Zambia','Zimbabwe'
     ]
-    filtered_df = filtered_df[df['re_name'].isin(countries)]
+    filtered_df = filtered_df[df['re_name'].isin(countries)] if filtered_df is not None else df[df['re_name'].isin(countries)]
 
 
     if filtered_df.empty:

@@ -160,19 +160,22 @@ def api_explore(check):
     else:
         ind = 76
 
-    city = request.args.get('city')
+    city = request.args.getlist('city')
     year_filter = request.args.getlist('year')
     
     print("indicator", ind)
     plot = 1
 
-    print("args", check)
+    # print("args", check)
 
     # Calculate the current year
     current_year = datetime.now().year
 
     # Calculate the year from 10 years ago
-    ten_years_ago = current_year - 10
+    if request.args.get('year_ago'):
+        years_ago = current_year - int(request.args.get('year_ago'))
+    else:
+        years_ago = current_year - 10
 
     # codebook query
     if check == "codebook":
@@ -191,7 +194,7 @@ def api_explore(check):
             df = pd.DataFrame(query_result)
 
         if city:
-            df = df[df['re_name'] == city]
+            df = df[df['re_name'].isin(city)]
         if year_filter:
             years_db = db.session.query(CbYear.id).filter(CbYear.name.in_([int(yr) for yr in year_filter]))
             valid_year_ids = [yr[0] for yr in years_db]
@@ -218,24 +221,28 @@ def api_explore(check):
 
     df = df.drop_duplicates()
 
-    # Filter the DataFrame to get data for African countries
-    african_countries = [
-            'Algeria', 'Angola','Benin','Botswana','Burkina Faso',
-            'Burundi','Cabo Verde','Cameroon','Central African Republic',
-            'Chad','Comoros','Democratic Republic of the Congo',
-            'Republic of the Congo','Cote d\'Ivoire','Djibouti','Egypt',
-            'Equatorial Guinea','Eritrea','Ethiopia','Gabon','Gambia',
-            'Ghana','Guinea','Guinea Bissau','Kenya','Lesotho',
-            'Liberia','Libya','Madagascar','Malawi','Mali','Mauritania',
-            'Mauritius','Morocco','Mozambique','Namibia','Niger','Nigeria',
-            'Rwanda','Sao Tome and Principe','Senegal','Seychelles',
-            'Sierra Leone','Somalia','South Africa','South Sudan','Sudan',
-            'Swaziland','Tanzania','Togo','Tunisia','Uganda','Zambia','Zimbabwe'
-    ]
-    filtered_df = df[df['re_name'].isin(african_countries)]
-
     # Filter the DataFrame to get data from the previous 10 years
-    filtered_df = filtered_df[df['year'] >= ten_years_ago]
+    filtered_df = df[df['year'] >= years_ago]
+
+    # Filter countries
+    countries = []
+    if request.args.get('african') == 'african':
+        # Filter the DataFrame to get data for African countries
+        countries = [
+                'Algeria', 'Angola','Benin','Botswana','Burkina Faso',
+                'Burundi','Cabo Verde','Cameroon','Central African Republic',
+                'Chad','Comoros','Democratic Republic of the Congo',
+                'Republic of the Congo','Cote d\'Ivoire','Djibouti','Egypt',
+                'Equatorial Guinea','Eritrea','Ethiopia','Gabon','Gambia',
+                'Ghana','Guinea','Guinea Bissau','Kenya','Lesotho',
+                'Liberia','Libya','Madagascar','Malawi','Mali','Mauritania',
+                'Mauritius','Morocco','Mozambique','Namibia','Niger','Nigeria',
+                'Rwanda','Sao Tome and Principe','Senegal','Seychelles',
+                'Sierra Leone','Somalia','South Africa','South Sudan','Sudan',
+                'Swaziland','Tanzania','Togo','Tunisia','Uganda','Zambia','Zimbabwe'
+        ]
+        filtered_df = filtered_df[df['re_name'].isin(countries)]
+
 
     if filtered_df.empty:
         return jsonify({})
@@ -333,7 +340,7 @@ def api_explore(check):
 #     current_year = datetime.now().year
 
 #     # Calculate the year from 10 years ago
-#     ten_years_ago = current_year - 10
+#     years_ago = current_year - 10
 
 #     # codebook query
 #     if check == "codebook":
@@ -382,7 +389,7 @@ def api_explore(check):
 #     # df.to_csv('%s/data/%s' % (app.root_path, "data_test.csv"), index=False)
 
 #     # Filter the DataFrame to get data from the previous 10 years
-#     filtered_df = df[df['year'] >= ten_years_ago]
+#     filtered_df = df[df['year'] >= years_ago]
 
 #     table = []
 #     table_plot = []

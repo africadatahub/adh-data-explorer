@@ -351,8 +351,8 @@ loadGoogleVizApi(resultSet,selectedYear,winWidth,winHeight) {
                     }
                 });
 
-                map.setDataTable(myView);
-                map.draw();
+                // map.setDataTable(myView);
+                // map.draw();
 
                 $('#map-selector').on('change', function(event) {
                     event.preventDefault();
@@ -410,8 +410,8 @@ loadGoogleVizApi(resultSet,selectedYear,winWidth,winHeight) {
                         }
                     });
 
-                    map.setDataTable(myView);
-                    map.draw();
+                    // map.setDataTable(myView);
+                    // map.draw();
 
                     $('#map-selector').val(year);
                  });
@@ -477,8 +477,8 @@ loadGoogleVizApi(resultSet,selectedYear,winWidth,winHeight) {
                     }
                 });
 
-               map.setDataTable(myView);
-               map.draw();
+              // map.setDataTable(myView);
+               //map.draw();
 
                $('#map-selector').on('change', function(event) {
                       event.preventDefault();
@@ -506,8 +506,8 @@ loadGoogleVizApi(resultSet,selectedYear,winWidth,winHeight) {
                         }
                     });
 
-                    map.setDataTable(myView);
-                    map.draw();
+                    //map.setDataTable(myView);
+                   //map.draw();
                });
               }
                 

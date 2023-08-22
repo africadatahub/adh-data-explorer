@@ -16,7 +16,7 @@ from .models import *
 from .blueprints import *
 
 app.register_blueprint(REACT, url_prefix='/react')
-app.register_blueprint(SCODA, url_prefix='/scoda')
+app.register_blueprint(SCODA, url_prefix='/home')
 
 @app.route('/sitemap.xml', methods=['GET'])
 def sitemap():

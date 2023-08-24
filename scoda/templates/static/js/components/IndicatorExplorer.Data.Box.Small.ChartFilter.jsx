@@ -53,13 +53,13 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
                         'containerId': 'categorySelector1',
                         'state': {'selectedValues':resultSet.cities},
                         'options': {
-                            'filterColumnLabel': 'City',
+                            'filterColumnLabel': 'Country',
                             'ui': {
                                 'labelStacking': 'vertical',
                                 'allowMultiple': true,
                                 'allowNone': false,
                                 'allowTyping': false,
-                                'caption': 'Choose a city...'
+                                'caption': 'Choose a country...'
                             }
                         }
                     });
@@ -95,7 +95,7 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
                             <div className="ie-box-card-header">
                               <div className="row">
                                   <div className="col ml-3">
-                                      Select Data
+                                  Filters
                                   </div>
                               </div>
                             </div>

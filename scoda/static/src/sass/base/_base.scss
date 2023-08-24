@@ -218,7 +218,19 @@ label {
     }
 }
 
-// .ie-table{
-//   @include custom-scrollbar(white);
-//   //overflow-y: auto;
-// }
+.google-visualization-table>div:first-child{
+  @include custom-scrollbar(#FBFBFB);
+}
+
+.google-visualization-table{
+  table{
+    tr{
+      th:first-child, td:first-child{
+        padding-right: 30px;
+      }
+    }
+  }
+}
+.underline{
+  text-decoration: underline !important;
+}

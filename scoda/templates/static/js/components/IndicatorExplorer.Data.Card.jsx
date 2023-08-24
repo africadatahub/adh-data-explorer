@@ -183,14 +183,14 @@ export default class IndicatorExplorerDataCard extends Component {
                             <div id="explorer-details" style={{marginTop:"30px"}} className="col-md-12 col-lg-12 col-xl-12">
 
                                 <div className="row">
-                                    <div className="col-md-12 col-lg-3 col-xl-3">
+                                    <div className="col-md-12 col-lg-3 col-xl-3 p-0">
                                        <IndicatorExplorerDataBoxChartFilter 
                                          results={this.state.dataset}
                                          filterYear={this.state.selectedYear}
                                         />
                                         
                                     </div>
-                                    <div className="col-md-12 col-lg-9 col-xl-9">
+                                    <div className="col-md-12 col-lg-9 col-xl-9 pr-0">
                                     <IndicatorExplorerDataBox 
                                             resultTitle="Plotting Window"
                                             results={this.state.dataset}
@@ -200,7 +200,7 @@ export default class IndicatorExplorerDataCard extends Component {
                                     </div>
                                 </div>  
                                 <div className="row">
-                                <div className="col-md-12 col-lg-12 col-xl-12">
+                                <div className="col-md-12 col-lg-12 col-xl-12 p-0">
                                 <IndicatorExplorerDataBox 
                                             resultTitle="Selected Data"
                                             results={this.state.dataset}

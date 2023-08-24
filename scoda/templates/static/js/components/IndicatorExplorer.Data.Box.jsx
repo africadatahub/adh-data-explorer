@@ -144,7 +144,7 @@ export default class IndicatorExplorerDataBox extends Component {
     render() {
         let downloadEvent = '';
         if(this.props.resultType !== 'map') {
-          downloadEvent = <div className="ie-button-download" onClick={()=>this.download(this.props.resultType)}>Download</div>;
+          downloadEvent = <div className="ie-button-download" style={{width:'133px'}} onClick={()=>this.download(this.props.resultType)}>{this.props.resultType === 'chart' ? 'Download as PNG':'Download as CSV' } </div>;
         }
 
         return (

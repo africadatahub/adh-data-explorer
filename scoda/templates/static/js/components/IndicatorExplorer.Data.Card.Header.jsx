@@ -35,6 +35,8 @@ export default class IndicatorExplorerDataCardHeader extends Component {
                 document.getElementById('button-search').classList.add('ie-button-inactive');
             }
         });
+        this.props.filterHook(1)
+            
     }
 
 
@@ -51,6 +53,7 @@ export default class IndicatorExplorerDataCardHeader extends Component {
         let selectedIndex = document.getElementById('selector').value;
         console.log('filtered',selectedIndex)
         this.props.filterHook(selectedIndex);
+        document.getElementById('button-search').classList.add('ie-button-inactive');
     }
     
     render() {
@@ -124,12 +127,12 @@ export default class IndicatorExplorerDataCardHeader extends Component {
                     }}>
                     The purpose of this data explorer is to visually display data in a way that breaks a large dataset into smaller understandable constituent parts.  In this case the focus is on gender per country that may be less apparent when the data are viewed together.<br/><br/>
  
-                     Data is sourced from the <a href="" target='_blank' style={{
+                     <span style={{fontStyle: 'italic',}}> Data is sourced from the <a href="" target='_blank' className='underline' style={{
                         textDecoration: 'underline',
                         color: '#CACACA',
                         fontStyle: 'italic',
-                        fontWeight: '500'
-                     }}>World Bank</a>.
+                        fontWeight: '400'
+                     }}>World Bank</a>.</span>
 
                         </span>
                     </div>

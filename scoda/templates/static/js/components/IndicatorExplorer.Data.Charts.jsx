@@ -157,7 +157,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         };
 
                     }
-                    console.log('options', options)
                     let bar = new google.visualization.ChartWrapper(options);
 
                     let cssClassNames = {
@@ -580,7 +579,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             barTmp.draw(tmpDiv);
 
                         }
-                        console.log('test barTmp', barTmp)
                         google.visualization.events.addListener(barTmp, 'ready',
                             function (event) {
 

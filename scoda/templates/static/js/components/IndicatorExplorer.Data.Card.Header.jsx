@@ -41,7 +41,6 @@ export default class IndicatorExplorerDataCardHeader extends Component {
 
 
     resetForm() {
-        console.log('reset')
         $('#selector').select2('val', 0);
 
         document.getElementById('button-search').classList.add('ie-button-inactive');
@@ -51,13 +50,11 @@ export default class IndicatorExplorerDataCardHeader extends Component {
 
     filterData() {
         let selectedIndex = document.getElementById('selector').value;
-        console.log('filtered',selectedIndex)
         this.props.filterHook(selectedIndex);
         document.getElementById('button-search').classList.add('ie-button-inactive');
     }
     
     render() {
-        console.log('current option',this.props.datasetOptions)
           
         const selectorOptions = this.props.datasetOptions.map((dataset,index) =>{
             // <option key={index} value={dataset[0]}>{dataset[1].match(/.{1,10}(\s|$)/g)}</option>

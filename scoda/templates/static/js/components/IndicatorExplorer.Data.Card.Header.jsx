@@ -35,7 +35,7 @@ export default class IndicatorExplorerDataCardHeader extends Component {
                 document.getElementById('button-search').classList.add('ie-button-inactive');
             }
         });
-        this.props.filterHook(5)
+        this.props.filterHook(1)
             
     }
 

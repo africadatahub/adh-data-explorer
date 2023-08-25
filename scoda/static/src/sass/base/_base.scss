@@ -228,6 +228,9 @@ label {
       th:first-child, td:first-child{
         padding-right: 30px;
       }
+      td:first-child{
+        font-weight: 700;
+      }
     }
   }
 }

@@ -137,8 +137,26 @@ export default class IndicatorExplorerDataBox extends Component {
     downloadChart() {
 
         let dataUri = document.getElementById('chartPng').value;
+        if(dataUri){
+            this.downloadData(dataUri,'chart.png');
+        }
+        else{
+            var x = document.getElementById('chart').getElementsByTagName('svg')[0]
+            var img = new Image()
+            var serializer = new XMLSerializer()
+            var svgStr = serializer.serializeToString(x);
+            img.src = 'data:image/svg+xml;base64,'+window.btoa(svgStr);
+            var dlLink = document.createElement('a');
+            dlLink.download = "chart";
+            dlLink.href = img.src;
+            dlLink.dataset.downloadurl = ["image/png", dlLink.download, dlLink.href].join(':');
+        
+            document.body.appendChild(dlLink);
+            dlLink.click();
+            document.body.removeChild(dlLink);
 
-        this.downloadData(dataUri,'chart.png');
+        }
+
     }
 
     render() {

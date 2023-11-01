@@ -44,6 +44,12 @@ Then do the following:
 5. Now all your node plugins are installed, and all that's left is to run the gulp task manager by typing:
 `gulp`
 
+## Frontend Setup
+### Setting up with node >14 
+* cd to `scoda/templates/static/`
+* to install package required `npm install`
+* to run the app run `npm run watch`
+
 ## Backend Setup
 ### Setting up the Environment with Python 3.6.8+ and pip
 * clone the repo

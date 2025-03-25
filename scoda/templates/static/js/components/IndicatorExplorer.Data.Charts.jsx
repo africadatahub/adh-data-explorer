@@ -106,57 +106,99 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         $('#categorySelector2').show();
                         $('#cat-spacer').show();
 
+                        // Dynamically apply Y-axis labels and title
                         options = {
-                            'chartType': 'Bar',
-                            'dataTable': rows,
-                            'containerId': 'chart',
-                            'options': {
+                            chartType: 'Bar',
+                            dataTable: rows,
+                            containerId: 'chart',
+                            options: {
                                 stacked: true,
-                                legend: { position: 'top' },
+                                legend: {
+                                    position: 'right',
+                                    alignment: 'center',
+                                    textStyle: { color: '#000', fontSize: 12 },
+                                    trigger: 'hover', // Highlight data when hovering over legend items
+                                },
                                 bars: 'vertical',
-                                vAxis: { minValue: 0 },
-                                hAxis: { slantedText: true },
+                                vAxis: {
+                                    title: resultSet.table[0][0] || 'Default Y-Axis Label', // Dynamically set title
+                                    minValue: 0, // Preserving existing functionality
+                                },
+                                hAxis: {
+                                    title: resultSet.table[0][1]|| 'Default X-Axis Label', // Add X-axis title dynamically
+                                    slantedText: true
+                                },
                                 bar: { groupWidth: '99%' },
-                                tooltip: { isHtml: true },
+                                tooltip: {
+                                    isHtml: true,
+                                    trigger: 'focus',
+                                    showColorCode: true,
+                                },
                                 chartArea: { left: '10%', right: '60%' },
                                 height: winHeight,
                                 width: winWidth,
-                                fontfamily: 'Montserrat',
+                                fontFamily: 'Montserrat',
                                 fontsize: '10',
                                 series: resultSet.series,
                             },
                             view: { 'columns': resultSet.view }
                         };
-
                     }
 
                     if (resultSet.plot_type === 1) {
                         options = {
-                            'chartType': 'Line',
-                            'containerId': 'chart',
-                            'options': {
-                                legend: { position: 'left' },
-                                chartArea:{left:200},
-                                axes: {
-                                    y: {
-                                        all: {
-                                            range: {
-                                                max: resultSet.max,
-                                                min: resultSet.min > 0 ? 0 : resultSet.min - 1
-                                            }
-                                        }
-                                    }
+                            chartType: 'LineChart',
+                            dataTable: rows,
+                            containerId: 'chart',
+                            options: {
+                                title: resultSet.table[0][2] || 'Default Graph Label',
+                                vAxis: {
+                                    title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
+                                    range: {
+                                        max: resultSet.max,
+                                        min: resultSet.min > 0 ? -0.1 : resultSet.min - 1
+                                    },
+                                    textStyle: {
+                                        fontSize: 12, // Tick labels font size
+                                    },
+                                    titleTextStyle: {
+                                        fontSize: 14, // Title font size
+                                    },
                                 },
-                                hAxis: { slantedText: true },
+                                hAxis: {
+                                    title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically
+                                    slantedText: true,
+                                },
                                 height: winHeight,
                                 lineWidth: 4,
                                 interpolateNulls: true,
-                                tooltip: { isHtml: true },
-                                pointSize: 5
+                                legend: {
+                                    position: 'right',
+                                    alignment: 'center',
+                                    textStyle: { color: '#000', fontSize: 12 },
+                                    trigger: 'hover', // Highlight data when hovering over legend items
+                                },
+                                chartArea:{
+                                    left: 50,
+                                    right: 200,
+                                    top: 50,
+                                    width: '95%',
+                                    height: '70%',
+                                },
+                                tooltip: {
+                                    isHtml: true,
+                                    trigger: 'focus',
+                                    showColorCode: true,
+                                },
+                                series: {
+                                    0: { color: '#007bff', lineWidth: 3 },
+                                    1: { color: '#ff5733', lineWidth: 3 },
+                                },
                             }
                         };
 
                     }
+
                     let bar = new google.visualization.ChartWrapper(options);
 
                     let cssClassNames = {
@@ -439,20 +481,36 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
                         if (resultSet.plot_type === 2) {
                             optionsTmp = {
-                                'chartType': 'Bar',
-                                'dataTable': table.getDataTable(),
-                                'options': {
+                                chartType: 'Bar',
+                                dataTable: rows,
+                                containerId: 'chart',
+                                options: {
                                     stacked: true,
-                                    legend: { position: 'right' },
+                                    legend: {
+                                        position: 'right',
+                                        alignment: 'center',
+                                        textStyle: { color: '#000', fontSize: 12 },
+                                        trigger: 'hover', // Highlight data when hovering over legend items
+                                    },
                                     bars: 'vertical',
-                                    vAxis: { minValue: 0 },
-                                    hAxis: { slantedText: true },
+                                    vAxis: {
+                                        title: resultSet.table[0][0] || 'Default Y-Axis Label', // Dynamically set title
+                                        minValue: 0, // Preserving existing functionality
+                                    },
+                                    hAxis: {
+                                        title: resultSet.table[0][1]|| 'Default X-Axis Label', // Add X-axis title dynamically
+                                        slantedText: true
+                                    },
                                     bar: { groupWidth: '99%' },
-                                    tooltip: { isHtml: true },
+                                    tooltip: {
+                                        isHtml: true,
+                                        trigger: 'focus',
+                                        showColorCode: true,
+                                    },
                                     chartArea: { left: '10%', right: '60%' },
-                                    height: '100%',
-                                    width: '100%',
-                                    fontfamily: 'Montserrat',
+                                    height: winHeight,
+                                    width: winWidth,
+                                    fontFamily: 'Montserrat',
                                     fontsize: '10',
                                     series: resultSet.series,
                                 },
@@ -546,26 +604,53 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             }
 
                             optionsTmp = {
-                                'chartType': 'Line',
-                                'options': {
-                                    legend: { position: 'top' },
-                                    axes: {
-                                        y: {
-                                            all: {
-                                                range: {
-                                                    //max: resultSet.max,
-                                                    min: 0
-                                                }
-                                            }
-                                        }
+                                chartType: 'LineChart',
+                                dataTable: rows,
+                                containerId: 'chart',
+                                options: {
+                                    title: resultSet.table[0][2] || 'Default Graph Label',
+                                    vAxis: {
+                                        title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
+                                        range: {
+                                            max: resultSet.max,
+                                            min: resultSet.min > 0 ? -0.1 : resultSet.min - 1
+                                        },
+                                        textStyle: {
+                                            fontSize: 12, // Tick labels font size
+                                        },
+                                        titleTextStyle: {
+                                            fontSize: 14, // Title font size
+                                        },
                                     },
-                                    hAxis: { slantedText: true },
-                                    height: '100%',
-                                    width: '100%',
+                                    hAxis: {
+                                        title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically
+                                        slantedText: true,
+                                    },
+                                    height: winHeight,
                                     lineWidth: 4,
                                     interpolateNulls: true,
-                                    tooltip: { isHtml: true },
-                                    pointSize: 5
+                                    legend: {
+                                        position: 'right',
+                                        alignment: 'center',
+                                        textStyle: { color: '#000', fontSize: 12 },
+                                        trigger: 'hover', // Highlight data when hovering over legend items
+                                    },
+                                    chartArea:{
+                                        left: 50,
+                                        right: 200,
+                                        top: 50,
+                                        width: '95%',
+                                        height: '70%',
+                                    },
+                                    tooltip: {
+                                        isHtml: true,
+                                        trigger: 'focus',
+                                        showColorCode: true,
+                                    },
+                                    series: {
+                                        0: { color: '#007bff', lineWidth: 3 },
+                                        1: { color: '#ff5733', lineWidth: 3 },
+                                    },
                                 }
                             };
 

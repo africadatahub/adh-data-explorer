@@ -59,6 +59,7 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
                                 'allowMultiple': true,
                                 'allowNone': false,
                                 'allowTyping': false,
+                                'limit': 13,
                                 'caption': 'Choose a country...'
                             }
                         }
@@ -74,7 +75,8 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
                                 'labelStacking': 'vertical',
                                 'allowTyping': false,
                                 'allowMultiple': false,
-                                'allowNone': false
+                                'allowNone': false,
+                              'limit': 13,
                             }
                         }
                     });

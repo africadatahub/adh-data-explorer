@@ -78,7 +78,8 @@ export default class IndicatorExplorerDataBox extends Component {
     }
 
     renderDataSet(dataSetType,filter) {
-        switch(dataSetType) {
+
+      switch(dataSetType) {
             case "table" :
                     return <IndicatorExplorerDataTable
                              results={this.props.results}
@@ -104,13 +105,13 @@ export default class IndicatorExplorerDataBox extends Component {
         }
     }
 
-    download(downloadType) {
+    download(downloadType, filename) {
         switch(downloadType) {
             case "table":
-                this.downloadTable();
+                this.downloadTable(filename);
             break;
             case "chart":
-                this.downloadChart();
+                this.downloadChart(filename);
             break;
 					// Handle other cases ('table', 'map', etc.)
 					default:
@@ -119,12 +120,7 @@ export default class IndicatorExplorerDataBox extends Component {
 
     }
 
-    downloadTable() {
-        let encodedUri = 'data:application/csv;charset=utf-8,' + encodeURIComponent(document.getElementById('csv').value);
-        this.downloadData(encodedUri,'data.csv');
-    }
-
-    downloadData(uri,filename) {
+  downloadData(uri,filename) {
         let link = document.createElement("a");
         link.download = filename;
         link.href = uri;
@@ -137,12 +133,48 @@ export default class IndicatorExplorerDataBox extends Component {
 
     }
 
-  downloadChart() {
+  downloadTable(filename) {
+    // Try fetching the existing table reference
+    const tableElement = document.getElementById('tableD'); // Assuming the table is rendered in the DOM
+
+    if (tableElement) {
+      // CSV Work: Parse HTML Table to CSV data
+      let csvData = "";
+      const rows = tableElement.getElementsByTagName("tr"); // Fetch all rows
+
+      for (let i = 0; i < rows.length; i++) {
+        const cols = rows[i].children;
+        const rowData = [];
+        for (let j = 0; j < cols.length; j++) {
+          rowData.push(`"${cols[j].innerText}"`); // Handle text with commas by wrapping in quotes
+        }
+        csvData += rowData.join(",") + "\n"; // Concatenate rows with commas and line breaks
+      }
+
+      // Trigger download
+      const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+      const blobUrl = URL.createObjectURL(blob);
+
+      const dlLink = document.createElement("a");
+      dlLink.download = `${filename}.csv`; // Filename
+      dlLink.href = blobUrl;
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
+
+      // Clean up the blob URL to release memory
+      URL.revokeObjectURL(blobUrl);
+    } else {
+      console.error("Table element not found. Cannot download CSV.");
+    }
+  }
+
+  downloadChart(filename) {
     // Try fetching the existing PNG reference
     let dataUri = document.getElementById('chartPng')?.value;
     if (dataUri) {
       // Download the data directly
-      this.downloadData(dataUri, 'chart.png');
+      this.downloadData(dataUri, filename);
     } else {
       // Fetch the SVG element
       const svgElement = document.getElementById('chart').getElementsByTagName('svg')[0];
@@ -182,7 +214,7 @@ export default class IndicatorExplorerDataBox extends Component {
         const blobUrl = URL.createObjectURL(blob);
 
         const dlLink = document.createElement('a');
-        dlLink.download = "chart.svg"; // Filename
+        dlLink.download = `chart ${filename}.svg`; // Filename
         dlLink.href = blobUrl;
         document.body.appendChild(dlLink);
         dlLink.click();
@@ -199,7 +231,7 @@ export default class IndicatorExplorerDataBox extends Component {
   render() {
         let downloadEvent = '';
         if(this.props.resultType !== 'map') {
-          downloadEvent = <div className="ie-button-download" style={{width:'133px'}} onClick={()=>this.download(this.props.resultType)}>{this.props.resultType === 'chart' ? 'Download as PNG':'Download as CSV' } </div>;
+          downloadEvent = <div className="ie-button-download" style={{width:'133px'}} onClick={()=>this.download(this.props.resultType, this.props.results.options_list[0].optname)}>{this.props.resultType === 'chart' ? 'Download as PNG':'Download as CSV' } </div>;
         }
 
         return (

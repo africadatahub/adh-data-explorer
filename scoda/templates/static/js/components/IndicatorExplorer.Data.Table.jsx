@@ -6,6 +6,7 @@ export default class IndicatorExplorerDataTable extends Component {
         super(props);
     }
 
+
     componentDidMount() {
         if(this.props.results.length !== 0) {
            this.loadGoogleVizApi(this.props.results, this.props.filterYear);
@@ -20,6 +21,7 @@ export default class IndicatorExplorerDataTable extends Component {
     }
 
     loadGoogleVizApi(dataSet,selectedYear) {
+      this.title = dataSet.options_list[0].optname;
 
         var options = {
             dataType: "script",
@@ -39,7 +41,7 @@ export default class IndicatorExplorerDataTable extends Component {
                     for(let i=0;i<dataSet[0].length;i++) {
                         data.addColumn('string',dataSet[0][i] + '<br/><br/>');
                     }
-                    
+
                     for(let j=1;j<dataSet.length;j++) {
                         let rowItem = dataSet[j];
                         let row = [];
@@ -62,8 +64,9 @@ export default class IndicatorExplorerDataTable extends Component {
 
         return (
             <div>
-                <div id="tableD"></div>
-                <div id="tableD2" style={hiddenTable}></div>
+              <h2>{this.title}</h2>
+              <div id="tableD"></div>
+              <div id="tableD2" style={hiddenTable}></div>
             </div>
         )
     }

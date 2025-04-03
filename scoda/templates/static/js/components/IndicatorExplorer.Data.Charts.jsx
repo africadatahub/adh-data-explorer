@@ -126,7 +126,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             }
                         });
 
-                        console.log('max', max);
                         return max === 0 ? 0 : max + 0.199; // Return null if no valid numbers are found
                     };
 
@@ -805,11 +804,35 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             }
 
                             optionsTmp = {
-                                chartType: 'LineChart',
+                                chartType: 'Line',
                                 dataTable: rows,
                                 containerId: 'chart',
                                 options: {
+                                    chart: {
+                                        title: resultSet.table[0][2] || 'Default Graph Title',
+                                    },
                                     title: resultSet.table[0][2] || 'Default Graph Label',
+                                    axes: {
+                                        x: {
+                                            0: {
+                                                side: 'bottom',
+                                                label: resultSet.table[0][1] || 'Default X-Axis Label',
+                                                slantedText: true,
+                                                slantedTextAngle: 45,
+                                            } // Top x-axis.
+                                        },
+                                        y: {
+                                            0: {
+                                                side: 'left',
+                                                label: resultSet.table[0][0] || 'Default Y-Axis Label',
+                                                maxValue: findMaxInRange(resultSet),
+                                                range: {
+                                                    max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
+                                                    min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                                }
+                                            } // Top y-axis.
+                                        }
+                                    },
                                     vAxis: {
                                         title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
                                         maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
@@ -832,12 +855,13 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                     hAxis: {
                                         title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically
                                         slantedText: true,
+                                        scaleType: 'mirrorLog'
                                     },
                                     height: winHeight,
                                     lineWidth: 2,
                                     interpolateNulls: true,
                                     legend: {
-                                        position: 'right',
+                                        position: 'left',
                                         alignment: 'center',
                                         textStyle: { color: '#000', fontSize: 12 },
                                         trigger: 'hover', // Highlight data when hovering over legend items
@@ -851,7 +875,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                     },
                                     tooltip: {
                                         isHtml: true,
-                                        trigger: 'focus',
+                                        trigger: 'selection',
                                         showColorCode: true,
                                     },
                                     series: {

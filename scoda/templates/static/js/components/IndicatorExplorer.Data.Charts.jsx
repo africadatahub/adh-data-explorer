@@ -103,23 +103,31 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         }
                     }
 
+                    if (onSelectionFilters) {
+                        onSelectionFilters({
+                            selectedFilters: selectedFilters.length > 0 ? selectedFilters : resultSet.cities.slice(0, 10),
+                        });
+                    }
+
                     const findMaxInRange = (resultSet) => {
                         // Safeguard to ensure the resultSet structure exists
                         if (!resultSet || !Array.isArray(resultSet.table)) {
                             throw new Error('resultSet.table is not valid.');
                         }
 
-                        let max = -Infinity; // Start with the smallest possible number
+                        let max = 0; // Start with the smallest possible number
 
                         // Iterate over rows
-                        resultSet.table.forEach((row) => {
+                        const data = resultSet.table.slice(1).filter((row) => selectedFilters.includes(row[0]));
+                        data.forEach((row) => {
                             // Check if row[2] is a valid number
                             if (row[2] !== undefined && !isNaN(row[2])) {
                                 max = Math.max(max, Number(row[2])); // Convert to number for safety
                             }
                         });
 
-                        return max === -Infinity ? null : max; // Return null if no valid numbers are found
+                        console.log('max', max);
+                        return max === 0 ? 0 : max + 0.199; // Return null if no valid numbers are found
                     };
 
                     if (resultSet.plot_type === 2) {
@@ -128,10 +136,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
                         // Define bar chart options
                         options = {
-                            chart: {
-                                title: 'Nearby galaxies',
-                                subtitle: 'distance on the left, brightness on the right'
-                            },
                             title: resultSet.table[0][2] || 'Default Graph Title', // Main chart title
                             chartType: 'Bar',
                             dataTable: rows,
@@ -193,11 +197,35 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
                     if (resultSet.plot_type === 1) {
                         options = {
-                            chartType: 'LineChart',
+                            chartType: 'Line',
                             dataTable: rows,
                             containerId: 'chart',
                             options: {
+                                chart: {
+                                    title: resultSet.table[0][2] || 'Default Graph Title',
+                                },
                                 title: resultSet.table[0][2] || 'Default Graph Label',
+                                axes: {
+                                    x: {
+                                        0: {
+                                            side: 'bottom',
+                                            label: resultSet.table[0][1] || 'Default X-Axis Label',
+                                            slantedText: true,
+                                            slantedTextAngle: 45,
+                                        } // Top x-axis.
+                                    },
+                                    y: {
+                                        0: {
+                                            side: 'left',
+                                            label: resultSet.table[0][0] || 'Default Y-Axis Label',
+                                            maxValue: findMaxInRange(resultSet),
+                                            range: {
+                                                max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
+                                                min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                            }
+                                        } // Top y-axis.
+                                    }
+                                },
                                 vAxis: {
                                     title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
                                     maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
@@ -220,12 +248,13 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 hAxis: {
                                     title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically
                                     slantedText: true,
+                                    scaleType: 'mirrorLog'
                                 },
                                 height: winHeight,
                                 lineWidth: 2,
                                 interpolateNulls: true,
                                 legend: {
-                                    position: 'right',
+                                    position: 'left',
                                     alignment: 'center',
                                     textStyle: { color: '#000', fontSize: 12 },
                                     trigger: 'hover', // Highlight data when hovering over legend items
@@ -239,7 +268,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 },
                                 tooltip: {
                                     isHtml: true,
-                                    trigger: 'focus',
+                                    trigger: 'selection',
                                     showColorCode: true,
                                 },
                                 series: {

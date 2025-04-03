@@ -6,7 +6,7 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
     constructor(props) {
         super(props);
     }
-    
+
     componentDidUpdate() {
 
         if(this.props.results.length !== 0) {
@@ -14,80 +14,89 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
          }
      }
 
- 
-    loadGoogleVizApi(resultSet,selectedYear) {
-        var options = {
-            dataType: "script",
-            cache: true,
-            url: "https://www.google.com/jsapi",
-          };
-    
-          $.ajax(options).done(function(){
-            google.load("visualization", "1", {
-              packages:['controls', 'bar', 'corechart', 'geochart'],
-              callback: function() {
-                    var dataSet = resultSet.table;
 
-                    let rows = [];
-                    let rowHeader = [];
-                    for(let i=0;i<dataSet[0].length;i++) {
-                        rowHeader.push(dataSet[0][i]);
-                    }
-                    
-                    rows.push(rowHeader);
+  loadGoogleVizApi(resultSet, selectedYear) {
+    var options = {
+      dataType: "script",
+      cache: true,
+      url: "https://www.google.com/jsapi",
+    };
 
-                    for(let j=1;j<dataSet.length;j++) {
-                        let rowItem = dataSet[j];
-                        let row = [];
-                        if(rowItem[1].toString() === selectedYear) {
-                        for(let k=0;k<rowItem.length;k++) {
-                            row.push(rowItem[k]);
-                        }
-                        rows.push(row);
-                        }
-                    }
-                    var data = google.visualization.arrayToDataTable(resultSet.table);
+    $.ajax(options).done(function () {
+      google.load("visualization", "1", {
+        packages: ['controls', 'bar', 'corechart', 'geochart'],
+        callback: function () {
+          var dataSet = resultSet.table;
 
-                    var categoryPicker1 = new google.visualization.ControlWrapper({
-                        'controlType': 'CategoryFilter',
-                        'containerId': 'categorySelector1',
-                        'state': {'selectedValues':resultSet.cities},
-                        'options': {
-                            'filterColumnLabel': 'Country',
-                            'ui': {
-                                'labelStacking': 'vertical',
-                                'allowMultiple': true,
-                                'allowNone': false,
-                                'allowTyping': false,
-                                'limit': 13,
-                                'caption': 'Choose a country...'
-                            }
-                        }
-                    });
-        
-                    var categoryPicker2 = new google.visualization.ControlWrapper({
-                        'controlType': 'CategoryFilter',
-                        'containerId': 'categorySelector2',
-                        'state': {'selectedValues': resultSet.years},
-                        'options': {
-                            'filterColumnLabel': 'Year',
-                            'ui': {
-                                'labelStacking': 'vertical',
-                                'allowTyping': false,
-                                'allowMultiple': false,
-                                'allowNone': false,
-                              'limit': 13,
-                            }
-                        }
-                    });
+          let rows = [];
+          let rowHeader = [];
+          for (let i = 0; i < dataSet[0].length; i++) {
+            rowHeader.push(dataSet[0][i]);
+          }
 
-                    //var dashboard = new google.visualization.Dashboard(document.getElementById('dashboard'));
-                    //dashboard.bind(categoryPicker1,categoryPicker2,bar);
-                    //dashboard.draw(data);
-                }
-            });
-        });
-    }
+          rows.push(rowHeader);
+
+          for (let j = 1; j < dataSet.length; j++) {
+            let rowItem = dataSet[j];
+            let row = [];
+            if (rowItem[1].toString() === selectedYear) {
+              for (let k = 0; k < rowItem.length; k++) {
+                row.push(rowItem[k]);
+              }
+              rows.push(row);
+            }
+          }
+
+          var data = google.visualization.arrayToDataTable(resultSet.table);
+
+          // Perform checks for missing options
+          const allCountries = ['USA', 'Canada', 'UK', 'Germany']; // Example static list
+          const availableCountries = resultSet.cities;
+
+          // Disable missing options dynamically
+          const countryFilterOptions = allCountries.map(country => ({
+            label: country,
+            disabled: !availableCountries.includes(country)
+          }));
+
+          var categoryPicker1 = new google.visualization.ControlWrapper({
+            'controlType': 'CategoryFilter',
+            'containerId': 'categorySelector1',
+            'state': { 'selectedValues': resultSet.cities },
+            'options': {
+              'filterColumnLabel': 'Country',
+              'ui': {
+                'labelStacking': 'vertical',
+                'allowMultiple': true,
+                'allowNone': false,
+                'allowTyping': false,
+                'caption': 'Choose a country...',
+              }
+            }
+          });
+
+          var categoryPicker2 = new google.visualization.ControlWrapper({
+            'controlType': 'CategoryFilter',
+            'containerId': 'categorySelector2',
+            'state': { 'selectedValues': resultSet.years},
+            'options': {
+              'filterColumnLabel': 'Year',
+              'ui': {
+                'labelStacking': 'vertical',
+                'allowTyping': false,
+                'allowMultiple': false,
+                'allowNone': false,
+              }
+            }
+          });
+
+          // Draw the updated data on the dashboard
+          // Alternatively, rebind disabled logic
+          // e.g., dashboard.bind(categoryPicker1);
+        }
+      });
+    });
+  }
 
     render() {
 
@@ -102,18 +111,22 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
                               </div>
                             </div>
                             <div className="mt-2 ml-2 mr-2">
-                                <div id="categorySelector2"></div>
+                              {this.props.maxSelection && (<h4>Selected Items ({this.props.selectedItems}/{this.props.maxSelection}):</h4>)}
+                              {this.props.errorMessage && (
+                                <div className="alert alert-danger mt-2">{this.props.errorMessage}</div>
+                              )}
+                              <div id="categorySelector2"></div>
                                 <div id="cat-spacer" className="ml-2 mr-2 mt-4 mb-2 ie-small-border"></div>
                                 <div id="categorySelector1"></div>
                             </div>
-                            
+
                             {/*<div className="col-0 pt-2 pl-1 pr-1">
                                 <div className="ie-box-results mtp-2 ml-2 mr-2">
                                 <div className="ie-element-label-small">Year:</div>
                                 <select id="year-selector" className="pl-3 mt-2 mr-2 ie-dropdown-small">
                                   {yearOptions}
                                 </select>
-                                </div>                        
+                                </div>
                             </div>
                             <div className="col mt-3 ml-2 mr-2 Smt-3 ie-small-border"></div>
                             <div className="col-0 pt-2 pl-1 pr-1">
@@ -122,7 +135,7 @@ export default class IndicatorExplorerDataBoxChartFilter extends Component {
                                 <select id="city-selector" className="pl-3 mt-2 mr-2 ie-dropdown-small">
                                   {cityOptions}
                                 </select>
-                                </div>                        
+                                </div>
                             </div>
                             <div className="col-0 pt-2 pl-1 pr-1">
                             {pill}

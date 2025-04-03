@@ -23,10 +23,17 @@ export default class IndicatorExplorerDataCard extends Component {
           mapFilter:'NA',
             display:false,
             modal: false,
-            loader:false
+            loader:false,
+          maxSelection: 13, // Maximum number of allowed selections
+          errorMessage: '',
+          selectedItems: 0, // Array of selected items
+          selectedCountries: [],
+          selectedFilters: []
         }
 
-        this.filterIndicatorData = this.filterIndicatorData.bind(this);
+      this.handleFiltersChange = this.handleFiltersChange.bind(this);
+      this.handleSelectionChange = this.handleSelectionChange.bind(this);
+      this.filterIndicatorData = this.filterIndicatorData.bind(this);
         this.toggleComponentDisplay = this.toggleComponentDisplay.bind(this);
         this.toggleModal = this.toggleModal.bind(this);
         this.setMapFilter = this.setMapFilter.bind(this);
@@ -79,10 +86,13 @@ export default class IndicatorExplorerDataCard extends Component {
     async filterIndicatorData(indicatorId) {
         this.showLoader();
 
-        this.setState({mapFilter: 'NA'});
-        this.setState({selectedYear:'2010'})
-        this.setState({dataset:[]});
-        this.setState({table: []});
+      this.setState({mapFilter: 'NA'});
+      this.setState({selectedYear:'2010'})
+      this.setState({dataset:[]});
+      this.setState({table: []});
+      this.setState(prevState => ({
+        selectedFilters: prevState.selectedFilters || [] // Retain the current filter if set
+      }));
 
         this.toggleComponentDisplay(false);
 
@@ -100,7 +110,7 @@ export default class IndicatorExplorerDataCard extends Component {
                     }
                     if(resultSet.data.plot_type === 1) {
                         var year = resultSet.data.year;
-                       
+
                         let years = [];
                         resultSet.data.years_list.map((dataset,index) =>(
                             years.push({'id': dataset.optid,'val':dataset.optname.replace('Year:','').trim()})
@@ -113,10 +123,11 @@ export default class IndicatorExplorerDataCard extends Component {
                             }
                         }
                     }
-                   
+
                     this.setState({mapFilter: 'NA'});
                     this.setState({dataset: resultSet.data});
                     this.setState({table: resultSet.data.table});
+                    this.setState(prevState => ({selectedFilters: prevState.selectedFilters || []}));
 
                     this.toggleComponentDisplay(true);
                 }
@@ -126,6 +137,7 @@ export default class IndicatorExplorerDataCard extends Component {
                         this.setState({selectedYear:'2010'})
                         this.setState({dataset:[]});
                         this.setState({table: []});
+                        this.setState(prevState => ({selectedFilters: prevState.selectedFilters || []}));
 
                         this.toggleComponentDisplay(false);
                 }
@@ -160,6 +172,22 @@ export default class IndicatorExplorerDataCard extends Component {
         }
     }
 
+  handleSelectionChange({ selectedItems, errorMessage, selectedCountries }) {
+    // Update the state based on child's callback
+    this.setState({
+      selectedCountries: selectedCountries,
+      selectedItems: selectedItems,
+      errorMessage: errorMessage,
+    });
+  }
+
+  handleFiltersChange({ selectedFilters}) {
+    // Update the state based on child's callback
+    this.setState({
+      selectedFilters: selectedFilters,
+    });
+  }
+
   render() {
         let modalCloseIcon = <i className="modal-close fa fa-times" aria-hidden="true" onClick={this.toggleModal}></i>;
 
@@ -184,10 +212,15 @@ export default class IndicatorExplorerDataCard extends Component {
 
                                 <div className="row">
                                     <div className="col-md-12 col-lg-3 col-xl-3 p-0">
-                                       <IndicatorExplorerDataBoxChartFilter 
+                                       <IndicatorExplorerDataBoxChartFilter
                                          results={this.state.dataset}
                                          filterYear={this.state.selectedYear}
-                                        />
+                                         maxSelection={this.state.maxSelection}
+                                         errorMessage={this.state.errorMessage}
+                                         selectedItems={this.state.selectedItems}
+                                         onSelectionChange={this.handleSelectionChange}
+                                         selectedCountries={this.state.selectedCountries}
+                                       />
                                         
                                     </div>
                                     <div className="col-md-12 col-lg-9 col-xl-9 pr-0">
@@ -196,6 +229,11 @@ export default class IndicatorExplorerDataCard extends Component {
                                             results={this.state.dataset}
                                             resultType="chart"
                                             filterYear={this.state.selectedYear}
+                                            maxSelection={this.state.maxSelection}
+                                            onSelectionChange={this.handleSelectionChange}
+                                            selectedCountries={this.state.selectedCountries}
+                                            onSelectionFilters={this.handleFiltersChange}
+                                            selectedFilters={this.state.selectedFilters}
                                     />
                                     </div>
                                 </div>  
@@ -206,7 +244,10 @@ export default class IndicatorExplorerDataCard extends Component {
                                             results={this.state.dataset}
                                             resultType="table"
                                             filterYear={this.state.selectedYear}
-                                    />
+                                            maxSelection={this.state.maxSelection}
+                                            onSelectionChange={this.handleSelectionChange}
+                                            selectedCountries={this.state.selectedCountries}
+                                />
                                     </div>
                                 </div> 
                                 <div className="row mt-3"></div>                    

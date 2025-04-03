@@ -92,6 +92,11 @@ export default class IndicatorExplorerDataBox extends Component {
                         data={this.props.results}
                         key={dataSetType}
                         filterYear={this.props.filterYear}
+                        onSelectionChange={this.props.onSelectionChange}
+                        maxSelection={this.props.maxSelection}
+                        selectedCountries={this.props.selectedCountries}
+                        onSelectionFilters={this.props.onSelectionFilters}
+                        selectedFilters={this.props.selectedFilters}
                     />
             break;
             case "map":

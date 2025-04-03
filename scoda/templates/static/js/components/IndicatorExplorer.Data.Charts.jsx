@@ -65,6 +65,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
     }
 
     loadGoogleVizApi(resultSet, selectedYear, winWidth, winHeight) {
+        const { maxSelection, onSelectionChange, onSelectionFilters, selectedFilters } = this.props;
+console.log('selectedFilters',selectedFilters);
         var options = {
             dataType: "script",
             cache: true,
@@ -145,6 +147,28 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         };
                     }
 
+                    const findMaxInRange = (resultSet) => {
+                        // Safeguard to ensure the resultSet structure exists
+                        if (!resultSet || !Array.isArray(resultSet.table)) {
+                            throw new Error('resultSet.table is not valid.');
+                        }
+
+                        let max = -Infinity; // Start with the smallest possible number
+
+                        // Iterate over rows
+                        resultSet.table.forEach((row) => {
+                            // Check if row[2] is a valid number
+                            if (row[2] !== undefined && !isNaN(row[2])) {
+                                max = Math.max(max, Number(row[2])); // Convert to number for safety
+                            }
+                        });
+
+                        return max === -Infinity ? null : max; // Return null if no valid numbers are found
+                    };
+
+                    const maxValue = findMaxInRange(resultSet);
+
+
                     if (resultSet.plot_type === 1) {
                         options = {
                             chartType: 'LineChart',
@@ -154,8 +178,14 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 title: resultSet.table[0][2] || 'Default Graph Label',
                                 vAxis: {
                                     title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
+                                    maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
+                                    minValue: resultSet.min > 0 ? -0.1 : resultSet.min - 1,
+                                    viewWindow: {
+                                        max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
+                                        min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                    },
                                     range: {
-                                        max: resultSet.max,
+                                        max: findMaxInRange(resultSet),
                                         min: resultSet.min > 0 ? -0.1 : resultSet.min - 1
                                     },
                                     textStyle: {
@@ -222,10 +252,17 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             width: '100%'
                         }
                     });
+
+                    if (onSelectionChange) {
+                        onSelectionChange({
+                            selectedItems: selectedFilters.length > 0 ? resultSet.cities.filter((city) => selectedFilters.includes(city)).length : resultSet.cities.slice(0, 10).length,
+                            errorMessage: '',
+                        });
+                    }
                     let categoryPicker1 = new google.visualization.ControlWrapper({
                         'controlType': 'CategoryFilter',
                         'containerId': 'categorySelector1',
-                        'state': { 'selectedValues': resultSet.cities.slice(0, 10) },
+                        'state': { 'selectedValues': selectedFilters.length > 0 ? selectedFilters : resultSet.cities.slice(0, 10) },
                         'options': {
                             'filterColumnLabel': 'City',
                             'ui': {
@@ -234,6 +271,11 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 'allowMultiple': true,
                                 'allowNone': false,
                                 'allowTyping': false,
+                                'cssOptions': {
+                                    // Add style for disabled options
+                                    'disabledCssClass': 'disabled-option'
+                                },
+                                'limit': 13,
                                 'caption': 'Choose a country...'
                             }
                         }
@@ -250,9 +292,85 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 'labelStacking': 'vertical',
                                 'allowTyping': false,
                                 'allowMultiple': false,
-                                'allowNone': false
+                                'allowNone': false,
+                                'cssOptions': {
+                                    // Add style for disabled options
+                                    'disabledCssClass': 'disabled-option'
+                                },
+                                'limit': 13,
                             }
                         }
+                    });
+
+
+
+
+                    google.visualization.events.addListener(categoryPicker1, 'statechange', function () {
+                        const selectedValues = categoryPicker1.getState().selectedValues;
+console.log('selectedValues', selectedValues);
+                        const selectedItems = selectedValues.length;
+                        const selectedFilters = selectedValues;
+                        // Define the limit
+                        let errorMessage = '';
+
+                        if (selectedValues.length > maxSelection) {
+                            // Enforce limit: Reset state to the first MAX_SELECTION items
+                            categoryPicker1.setState({
+                                selectedValues: selectedValues.slice(0, maxSelection),
+                            });
+
+                            // Optionally, notify the user
+                            alert(`You can only select up to ${maxSelection} items.`);
+                            categoryPicker1.draw(); // Redraw to reflect the changes
+
+                            errorMessage = `You can only select up to ${maxSelection} items.`;
+
+                        }
+                        if (onSelectionChange) {
+                            onSelectionChange({
+                                selectedItems,
+                                errorMessage,
+                            });
+                        }
+
+                        if (onSelectionFilters) {
+                            onSelectionFilters({
+                                selectedFilters,
+                            });
+                        }
+
+                    });
+
+                    google.visualization.events.addListener(categoryPicker2, 'statechange', function () {
+                        const selectedValues = categoryPicker2.getState().selectedValues;
+                        const selectedItems = selectedValues;
+                        // Define the limit
+                        let errorMessage = '';
+
+                        if (selectedValues.length > maxSelection) {
+                            // Enforce limit: Reset state to the first MAX_SELECTION items
+                            categoryPicker2.setState({
+                                selectedValues: selectedValues.slice(0, maxSelection),
+                            });
+
+                            // Optionally, notify the user
+                            alert(`You can only select up to ${maxSelection} items.`);
+                            categoryPicker1.draw(); // Redraw to reflect the changes
+
+                            errorMessage = `You can only select up to ${maxSelection} items.`;
+                        }
+                        if (onSelectionChange) {
+                            onSelectionChange({
+                                selectedItems,
+                                errorMessage,
+                            });
+                        }
+                    });
+
+                    // Example: Use a disabled CSS class in case of missing values
+                    document.querySelectorAll('.disabled-option').forEach(el => {
+                        el.style.color = '#aaa';
+                        el.style.pointerEvents = 'none';
                     });
 
                     let data = google.visualization.arrayToDataTable(resultSet.table);
@@ -611,8 +729,14 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                     title: resultSet.table[0][2] || 'Default Graph Label',
                                     vAxis: {
                                         title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
+                                        maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
+                                        minValue: resultSet.min > 0 ? -0.1 : resultSet.min - 1,
+                                        viewWindow: {
+                                            max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
+                                            min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                        },
                                         range: {
-                                            max: resultSet.max,
+                                            max: findMaxInRange(resultSet),
                                             min: resultSet.min > 0 ? -0.1 : resultSet.min - 1
                                         },
                                         textStyle: {

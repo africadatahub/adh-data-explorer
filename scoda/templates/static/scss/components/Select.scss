@@ -487,3 +487,8 @@
     }
 
 }
+
+.disabled-option {
+    color: #aaa; /* Grey out */
+    pointer-events: none; /* Disable clicks */
+}

@@ -35,7 +35,7 @@ export default class IndicatorExplorerDataCardHeader extends Component {
                 document.getElementById('button-search').classList.add('ie-button-inactive');
             }
         });
-        this.props.filterHook(1)
+        this.props.filterHook(this.props.selectedIndicatorId || 1)
             
     }
 
@@ -50,20 +50,30 @@ export default class IndicatorExplorerDataCardHeader extends Component {
 
     filterData() {
         let selectedIndex = document.getElementById('selector').value;
-        this.props.filterHook(selectedIndex);
+        this.props.filterHook(selectedIndex || this.props.selectedIndicatorId);
 
       console.log(selectedIndex)
         document.getElementById('button-search').classList.add('ie-button-inactive');
     }
     
     render() {
-          
-        const selectorOptions = this.props.datasetOptions.map((dataset,index) =>{
-            // <option key={index} value={dataset[0]}>{dataset[1].match(/.{1,10}(\s|$)/g)}</option>
-            return <option key={index} value={dataset[0]}>{dataset[1]}</option>
-        });
 
-        //populate select option with the current indicator
+      const selectorOptions = this.props.datasetOptions.map((dataset, index) => {
+        const [datasetValue, datasetLabel] = dataset; // Assuming dataset contains [value, label]
+
+        return (
+          <option
+            key={index}
+            value={datasetValue}
+            selected={datasetValue === this.props.selectedIndicatorId} // Mark as selected if it matches
+          >
+            {datasetLabel}
+          </option>
+        );
+      });
+
+
+      //populate select option with the current indicator
         const currentOption = this.props.datasetOptions.map((dataset,index) =>{
             if(dataset[0] === this.props.indicator_id) {
                 return  <option key={index} value={dataset[0]}>{dataset[1]}</option>

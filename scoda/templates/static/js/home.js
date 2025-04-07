@@ -23,11 +23,19 @@ history.listen(() => {
 
 // import more components
 export default (
-    <HashRouter history={history}>
-    <Suspense fallback={<div style={style}><img src={loader} alt='Loader'></img></div>}>
-      <Route exact path='/' component={()=> <Navigation />} />
-      <Route exact path='/' component={()=> <IndicatorExplorer />} />
-      <Route exact path='/' component={()=> <Footer />} />
-      </Suspense>
-    </HashRouter>
+  <HashRouter history={history}>
+    <Suspense fallback={<div style={style}><img src={loader} alt='Loader' /></div>}>
+      <Route
+        exact
+        path="/"
+        render={(props) => (
+          <>
+            <Navigation {...props} />
+            <IndicatorExplorer {...props} />
+            <Footer {...props} />
+          </>
+        )}
+      />
+    </Suspense>
+  </HashRouter>
 );

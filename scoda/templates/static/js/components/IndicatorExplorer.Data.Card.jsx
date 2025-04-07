@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Modal, ModalHeader, ModalBody, Spinner } from 'reactstrap';
+import { withRouter } from 'react-router-dom'; // Import withRouter for routing context
 
 import $ from 'jquery';
 
@@ -8,10 +9,8 @@ import axios from 'axios';
 import IndicatorExplorerDataCardHeader from '../components/IndicatorExplorer.Data.Card.Header';
 import IndicatorExplorerDataBox from '../components/IndicatorExplorer.Data.Box';
 import IndicatorExplorerDataBoxChartFilter from '../components/IndicatorExplorer.Data.Box.Small.ChartFilter';
-import IndicatorExplorerDataBoxMapFilter from '../components/IndicatorExplorer.Data.Box.Small.MapFilter';
-import { AElement } from 'canvg';
 
-export default class IndicatorExplorerDataCard extends Component {
+class IndicatorExplorerDataCard extends Component {
     constructor(props) {
         super(props);
 
@@ -19,7 +18,7 @@ export default class IndicatorExplorerDataCard extends Component {
             indicators:[],
             dataset:[],
             table:[],
-            selectedYear:'2010',
+          selectedYear: props.selectedYear || '2010', // Use props for initial state
           mapFilter:'NA',
             display:false,
             modal: false,
@@ -28,7 +27,8 @@ export default class IndicatorExplorerDataCard extends Component {
           errorMessage: '',
           selectedItems: 0, // Array of selected items
           selectedCountries: [],
-          selectedFilters: [],
+          selectedFilters: props.selectedFilters || [], // Use props for initial state
+          selectedIndicatorId: props.selectedIndicatorId || 1, // Use props for initial state
           graphName: '',
         }
 
@@ -40,13 +40,30 @@ export default class IndicatorExplorerDataCard extends Component {
         this.setMapFilter = this.setMapFilter.bind(this);
         this.showLoader = this.showLoader.bind(this);
         this.hideLoader = this.hideLoader.bind(this);
+      this.copyFiltersToClipboard = this.copyFiltersToClipboard.bind(this);
+
     }
 
     componentDidMount() {
        this.init();
        
        this.loadIndicators();
+      this.initFiltersFromURL();
     }
+
+  componentDidUpdate(prevProps) {
+    if (
+      prevProps.selectedYear !== this.props.selectedYear ||
+      prevProps.selectedIndicatorId !== this.props.selectedIndicatorId ||
+      prevProps.selectedFilters !== this.props.selectedFilters
+    ) {
+      this.setState({
+        selectedYear: this.props.selectedYear,
+        selectedIndicatorId: this.props.selectedIndicatorId,
+        selectedFilters: this.props.selectedFilters,
+      });
+    }
+  }
 
     init() {
         this.toggleComponentDisplay(false);
@@ -87,6 +104,7 @@ export default class IndicatorExplorerDataCard extends Component {
     async filterIndicatorData(indicatorId) {
         this.showLoader();
 
+      this.setState({selectedIndicatorId: this.state.selectedIndicatorId || indicatorId || 0});
       this.setState({mapFilter: 'NA'});
       this.setState({selectedYear:'2010'})
       this.setState({dataset:[]});
@@ -97,12 +115,17 @@ export default class IndicatorExplorerDataCard extends Component {
 
         this.toggleComponentDisplay(false);
 
-        let resultSet = await axios.get(`/api/explore/codebook?indicator_id=${indicatorId}`).catch(error => {
+      console.log('Filtering data with indicatorId:', indicatorId || this.state.selectedIndicatorId);
+
+      const id = this.state.selectedIndicatorId || indicatorId;
+
+      let resultSet = await axios.get(`/api/explore/codebook?indicator_id=${id}`).catch(error => {
             this.hideLoader();
             this.setState({modal:true, toggle:true});
         });
+      console.log('API Response:', resultSet.data);
 
-        try
+      try
         {
                 if(resultSet !== null) {
 
@@ -125,6 +148,7 @@ export default class IndicatorExplorerDataCard extends Component {
                         }
                     }
 
+                    this.setState({selectedIndicatorId: this.state.selectedIndicatorId || indicatorId});
                     this.setState({mapFilter: 'NA'});
                     this.setState({dataset: resultSet.data});
                     this.setState({table: resultSet.data.table});
@@ -134,7 +158,7 @@ export default class IndicatorExplorerDataCard extends Component {
                     this.toggleComponentDisplay(true);
                 }
                 else {
-
+                        this.setState({selectedIndicatorId: indicatorId});
                         this.setState({mapFilter: 'NA'});
                         this.setState({selectedYear:'2010'})
                         this.setState({dataset:[]});
@@ -174,6 +198,47 @@ export default class IndicatorExplorerDataCard extends Component {
         }
     }
 
+  // Load filters from URL and set them in the state
+  initFiltersFromURL() {
+    const queryParams = new URLSearchParams(this.props.location.search);
+    const selectedYear = queryParams.get('selectedYear') || this.state.selectedYear;
+    const selectedIndicatorId = queryParams.get('selectedIndicatorId') || this.state.selectedIndicatorId;
+    const selectedFilters = queryParams.get('selectedFilters')
+      ? queryParams.get('selectedFilters').split(',')
+      : [];
+
+    console.log('Selected Year:', selectedYear);
+    console.log('Selected Indicator ID:', selectedIndicatorId);
+    console.log('Selected Filters:', selectedFilters);
+
+    this.setState({ selectedYear, selectedIndicatorId, selectedFilters });
+  }
+
+  // Function to copy URL with filters to the clipboard
+  copyFiltersToClipboard() {
+    const { selectedYear, selectedIndicatorId, selectedFilters } = this.state;
+
+    // Dynamically generate the query string
+    const queryString = new URLSearchParams({
+      selectedYear,
+      selectedIndicatorId,
+      selectedFilters: selectedFilters.join(','), // Join filters as a single string
+    }).toString();
+
+    // Construct the full URL
+    const url = `${window.location.origin}/home/#/?${queryString}`;
+
+    // Copy to clipboard using the Clipboard API
+    navigator.clipboard.writeText(url)
+      .then(() => {
+        alert('Filters link copied to clipboard!'); // Optional: show feedback
+      })
+      .catch((err) => {
+        console.error('Failed to copy the link to clipboard:', err);
+      });
+  }
+
+
   handleSelectionChange({ selectedItems, errorMessage, selectedCountries }) {
     // Update the state based on child's callback
     this.setState({
@@ -206,7 +271,12 @@ export default class IndicatorExplorerDataCard extends Component {
                                         filterHook={this.filterIndicatorData}
                                         toggle = {this.toggleComponentDisplay}
                                         filterYear={this.state.selectedYear}
+                                        selectedIndicatorId={this.props.selectedIndicatorId}
                                       />
+                                    <div>
+                                      <h1>Shareable</h1>
+                                      <div id="button-copy-link" className="ie-button-search ie-button-search-explorer" style={{width:'170px'}} onClick={this.copyFiltersToClipboard}>Copy Link</div>
+                                    </div>
                                   </div>
                               </div>
                             </div>
@@ -286,3 +356,5 @@ export default class IndicatorExplorerDataCard extends Component {
         )
     }
 }
+
+export default withRouter(IndicatorExplorerDataCard);

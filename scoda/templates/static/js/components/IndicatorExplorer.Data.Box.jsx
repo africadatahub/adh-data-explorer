@@ -15,7 +15,7 @@ export default class IndicatorExplorerDataBox extends Component {
             csv:[]
         }
     }
-  
+
     componentDidMount() {
         if(this.props.results.length > 0) {
             this.loadGoogleVizApi(this.props.results,this.props.filterYear);
@@ -48,9 +48,9 @@ export default class IndicatorExplorerDataBox extends Component {
                     for(let i=0;i<=dataSet[0].length-1;i++) {
                         rowHeader.push(dataSet[0][i]);
                     }
-                
+
                     rows.push(rowHeader);
-                    
+
                     for(let j=1;j<=dataSet.length-1;j++) {
                         let rowItem = dataSet[j];
                         let row = [];
@@ -70,7 +70,7 @@ export default class IndicatorExplorerDataBox extends Component {
                     //var meta = 'Definition:' + ',{{ indicator.definition }}' + '\n' + 'Unit:' + ',{{ indicator.unit }}' + '\n'  +'Frequency:' + ',{{ indicator.frequency }}' + '\n' + 'Theme:' + ',{{ indicator.theme }}' + '\n' + 'Sub-theme:' + ',{{ indicator.sub_theme }}' + '\n' + 'Source' + ',{{ indicator.source }}' + '\n';
 
                     //var csvString = rowHeader.join(',') + '\n' + csvData + '\n';
-                    
+
                     //document.getElementById('csv').value=csvString;
                 }
             });
@@ -80,14 +80,14 @@ export default class IndicatorExplorerDataBox extends Component {
     renderDataSet(dataSetType,filter) {
         switch(dataSetType) {
             case "table" :
-                    return <IndicatorExplorerDataTable 
+                    return <IndicatorExplorerDataTable
                              results={this.props.results}
                              key={dataSetType}
                              filterYear={this.props.filterYear}
                             />
                 break;
-            case "chart": 
-              return <IndicatorExplorerDataChart 
+            case "chart":
+              return <IndicatorExplorerDataChart
                         data={this.props.results}
                         key={dataSetType}
                         filterYear={this.props.filterYear}
@@ -112,8 +112,11 @@ export default class IndicatorExplorerDataBox extends Component {
             case "chart":
                 this.downloadChart();
             break;
-        }
-        
+					// Handle other cases ('table', 'map', etc.)
+					default:
+						console.error('Unsupported download type:', downloadType);
+		}
+
     }
 
     downloadTable() {
@@ -131,35 +134,69 @@ export default class IndicatorExplorerDataBox extends Component {
             e.preventDefault();
             document.body.removeChild(link);
         });
-        
-    }
-
-    downloadChart() {
-
-        let dataUri = document.getElementById('chartPng').value;
-        if(dataUri){
-            this.downloadData(dataUri,'chart.png');
-        }
-        else{
-            var x = document.getElementById('chart').getElementsByTagName('svg')[0]
-            var img = new Image()
-            var serializer = new XMLSerializer()
-            var svgStr = serializer.serializeToString(x);
-            img.src = 'data:image/svg+xml;base64,'+window.btoa(svgStr);
-            var dlLink = document.createElement('a');
-            dlLink.download = "chart";
-            dlLink.href = img.src;
-            dlLink.dataset.downloadurl = ["image/png", dlLink.download, dlLink.href].join(':');
-        
-            document.body.appendChild(dlLink);
-            dlLink.click();
-            document.body.removeChild(dlLink);
-
-        }
 
     }
 
-    render() {
+  downloadChart() {
+    // Try fetching the existing PNG reference
+    let dataUri = document.getElementById('chartPng')?.value;
+    if (dataUri) {
+      // Download the data directly
+      this.downloadData(dataUri, 'chart.png');
+    } else {
+      // Fetch the SVG element
+      const svgElement = document.getElementById('chart').getElementsByTagName('svg')[0];
+
+      if (svgElement) {
+        // Serialize the SVG content to a string
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svgElement);
+
+        // Optional: Adjust SVG to include margins
+        const parser = new DOMParser();
+        const parsedSvg = parser.parseFromString(svgString, "image/svg+xml");
+        const svgNode = parsedSvg.documentElement;
+
+        const originalWidth = parseFloat(svgElement.getAttribute("width") || svgElement.style.width || 500); // Defaults to 500 if missing
+        const originalHeight = parseFloat(svgElement.getAttribute("height") || svgElement.style.height || 300); // Defaults to 300 if missing
+        const margin = 20; // Margin in pixels
+
+        // Update SVG viewBox for margins (ensuring no titles/axes are cut off)
+        if (!svgNode.getAttribute("viewBox")) {
+          svgNode.setAttribute("viewBox", `0 0 ${originalWidth} ${originalHeight}`);
+        }
+
+        const viewBox = svgNode.getAttribute("viewBox").split(" ").map(Number);
+        svgNode.setAttribute(
+          "viewBox",
+          `${viewBox[0] - margin} ${viewBox[1] - margin} ${viewBox[2] + margin * 2} ${viewBox[3] + margin * 2}`
+        );
+        svgNode.setAttribute("width", originalWidth + margin * 2);
+        svgNode.setAttribute("height", originalHeight + margin * 2);
+
+        // Serialize the updated SVG back to a string
+        const updatedSvgString = new XMLSerializer().serializeToString(svgNode);
+
+        // Create a blob and download the SVG
+        const blob = new Blob([updatedSvgString], { type: "image/svg+xml;charset=utf-8" });
+        const blobUrl = URL.createObjectURL(blob);
+
+        const dlLink = document.createElement('a');
+        dlLink.download = "chart.svg"; // Filename
+        dlLink.href = blobUrl;
+        document.body.appendChild(dlLink);
+        dlLink.click();
+        document.body.removeChild(dlLink);
+
+        // Clean up the blob URL to release memory
+        URL.revokeObjectURL(blobUrl);
+      } else {
+        console.error("SVG element not found. Cannot download chart.");
+      }
+    }
+  }
+
+  render() {
         let downloadEvent = '';
         if(this.props.resultType !== 'map') {
           downloadEvent = <div className="ie-button-download" style={{width:'133px'}} onClick={()=>this.download(this.props.resultType)}>{this.props.resultType === 'chart' ? 'Download as PNG':'Download as CSV' } </div>;
@@ -182,8 +219,8 @@ export default class IndicatorExplorerDataBox extends Component {
                         <div className="mt-2 ml-3 mb-4">
                             {this.renderDataSet(this.props.resultType,this.props.filter)}
                         </div>
-                        <input type="hidden" id="csv"></input>   
-                        <canvas style={{display:'none'}}></canvas>          
+                        <input type="hidden" id="csv"></input>
+                        <canvas style={{display:'none'}}></canvas>
                     </div>
                 </div>
             </div>

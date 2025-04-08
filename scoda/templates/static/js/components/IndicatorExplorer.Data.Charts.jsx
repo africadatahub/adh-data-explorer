@@ -66,7 +66,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
     loadGoogleVizApi(resultSet, selectedYear, winWidth, winHeight) {
         const { maxSelection, onSelectionChange, onSelectionFilters, selectedFilters } = this.props;
-console.log('selectedFilters',selectedFilters);
+
         var options = {
             dataType: "script",
             cache: true,
@@ -103,48 +103,10 @@ console.log('selectedFilters',selectedFilters);
                         }
                     }
 
-
-                    if (resultSet.plot_type === 2) {
-                        $('#categorySelector2').show();
-                        $('#cat-spacer').show();
-
-                        // Dynamically apply Y-axis labels and title
-                        options = {
-                            chartType: 'Bar',
-                            dataTable: rows,
-                            containerId: 'chart',
-                            options: {
-                                stacked: true,
-                                legend: {
-                                    position: 'right',
-                                    alignment: 'center',
-                                    textStyle: { color: '#000', fontSize: 12 },
-                                    trigger: 'hover', // Highlight data when hovering over legend items
-                                },
-                                bars: 'vertical',
-                                vAxis: {
-                                    title: resultSet.table[0][0] || 'Default Y-Axis Label', // Dynamically set title
-                                    minValue: 0, // Preserving existing functionality
-                                },
-                                hAxis: {
-                                    title: resultSet.table[0][1]|| 'Default X-Axis Label', // Add X-axis title dynamically
-                                    slantedText: true
-                                },
-                                bar: { groupWidth: '99%' },
-                                tooltip: {
-                                    isHtml: true,
-                                    trigger: 'focus',
-                                    showColorCode: true,
-                                },
-                                chartArea: { left: '10%', right: '60%' },
-                                height: winHeight,
-                                width: winWidth,
-                                fontFamily: 'Montserrat',
-                                fontsize: '10',
-                                series: resultSet.series,
-                            },
-                            view: { 'columns': resultSet.view }
-                        };
+                    if (onSelectionFilters) {
+                        onSelectionFilters({
+                            selectedFilters: selectedFilters.length > 0 ? selectedFilters : resultSet.cities.slice(0, 10),
+                        });
                     }
 
                     const findMaxInRange = (resultSet) => {
@@ -153,29 +115,116 @@ console.log('selectedFilters',selectedFilters);
                             throw new Error('resultSet.table is not valid.');
                         }
 
-                        let max = -Infinity; // Start with the smallest possible number
+                        let max = 0; // Start with the smallest possible number
 
                         // Iterate over rows
-                        resultSet.table.forEach((row) => {
+                        const data = resultSet.table.slice(1).filter((row) => selectedFilters.includes(row[0]));
+                        data.forEach((row) => {
                             // Check if row[2] is a valid number
                             if (row[2] !== undefined && !isNaN(row[2])) {
                                 max = Math.max(max, Number(row[2])); // Convert to number for safety
                             }
                         });
 
-                        return max === -Infinity ? null : max; // Return null if no valid numbers are found
+                        return max === 0 ? 0 : max + 0.199; // Return null if no valid numbers are found
                     };
 
-                    const maxValue = findMaxInRange(resultSet);
+                    if (resultSet.plot_type === 2) {
+                        $('#categorySelector2').show();
+                        $('#cat-spacer').show();
 
-
-                    if (resultSet.plot_type === 1) {
+                        // Define bar chart options
                         options = {
-                            chartType: 'LineChart',
+                            title: resultSet.table[0][2] || 'Default Graph Title', // Main chart title
+                            chartType: 'Bar',
                             dataTable: rows,
                             containerId: 'chart',
                             options: {
+                                chart: {
+                                    title: resultSet.table[0][2] || 'Default Graph Title',
+                                },
+                                title: resultSet.table[0][2] || 'Default Graph Title', // Main chart title
+                                stacked: true, // Enable stacking
+                                bars: 'vertical', // Vertical bar chart
+                                axes: {
+                                    x: {
+                                        0: {
+                                            side: 'bottom',
+                                            label: resultSet.table[0][0] || 'Default X-Axis Label',
+                                            slantedText: true,
+                                            slantedTextAngle: 45
+                                        } // Top x-axis.
+                                    },
+                                    y: {
+                                        0: {
+                                            side: 'left',
+                                            label: resultSet.table[0][1] || 'Default Y-Axis Label',
+                                            maxValue: findMaxInRange(resultSet),
+                                        } // Top y-axis.
+                                    }
+                                },
+                                hAxis: {
+                                    slantedText: true
+                                },
+                                chartArea: {
+                                    left: 70, // Adjust padding for Y-axis title
+                                    right: 70, // Adjust padding to avoid clipping
+                                    top: 80, // Adjust top padding to fit chart title
+                                    bottom: 90, // Adjust bottom padding for X-axis title and labels
+                                    width: '80%',
+                                    height: '70%',
+                                },
+                                bar: { groupWidth: '90%' }, // Adjust bar width for better aesthetics
+                                tooltip: {
+                                    isHtml: true,
+                                    trigger: 'focus', // Trigger tooltip on focus
+                                },
+                                legend: {
+                                    position: 'right',
+                                    alignment: 'center',
+                                    textStyle: { color: '#000', fontSize: 12 },
+                                },
+                                height: winHeight, // Dynamic height for the chart
+                                width: winWidth, // Dynamic width for the chart
+                                fontFamily: 'Montserrat', // Set global font
+                                fontSize: '10', // Set global font size
+                                series: resultSet.series, // Series data passed dynamically
+                            },
+                            view: { 'columns': resultSet.view }, // Columns to display in the chart
+                        };
+                    }
+
+                    if (resultSet.plot_type === 1) {
+                        options = {
+                            chartType: 'Line',
+                            dataTable: rows,
+                            containerId: 'chart',
+                            options: {
+                                chart: {
+                                    title: resultSet.table[0][2] || 'Default Graph Title',
+                                },
                                 title: resultSet.table[0][2] || 'Default Graph Label',
+                                axes: {
+                                    x: {
+                                        0: {
+                                            side: 'bottom',
+                                            label: resultSet.table[0][1] || 'Default X-Axis Label',
+                                            slantedText: true,
+                                            slantedTextAngle: 45,
+                                        } // Top x-axis.
+                                    },
+                                    y: {
+                                        0: {
+                                            side: 'left',
+                                            label: resultSet.table[0][0] || 'Default Y-Axis Label',
+                                            maxValue: findMaxInRange(resultSet),
+                                            range: {
+                                                max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
+                                                min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                            }
+                                        } // Top y-axis.
+                                    }
+                                },
                                 vAxis: {
                                     title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
                                     maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
@@ -198,12 +247,13 @@ console.log('selectedFilters',selectedFilters);
                                 hAxis: {
                                     title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically
                                     slantedText: true,
+                                    scaleType: 'mirrorLog'
                                 },
                                 height: winHeight,
                                 lineWidth: 2,
                                 interpolateNulls: true,
                                 legend: {
-                                    position: 'right',
+                                    position: 'left',
                                     alignment: 'center',
                                     textStyle: { color: '#000', fontSize: 12 },
                                     trigger: 'hover', // Highlight data when hovering over legend items
@@ -217,7 +267,7 @@ console.log('selectedFilters',selectedFilters);
                                 },
                                 tooltip: {
                                     isHtml: true,
-                                    trigger: 'focus',
+                                    trigger: 'selection',
                                     showColorCode: true,
                                 },
                                 series: {
@@ -307,7 +357,7 @@ console.log('selectedFilters',selectedFilters);
 
                     google.visualization.events.addListener(categoryPicker1, 'statechange', function () {
                         const selectedValues = categoryPicker1.getState().selectedValues;
-console.log('selectedValues', selectedValues);
+
                         const selectedItems = selectedValues.length;
                         const selectedFilters = selectedValues;
                         // Define the limit
@@ -343,7 +393,8 @@ console.log('selectedValues', selectedValues);
 
                     google.visualization.events.addListener(categoryPicker2, 'statechange', function () {
                         const selectedValues = categoryPicker2.getState().selectedValues;
-                        const selectedItems = selectedValues;
+                        const selectedItems = selectedValues.length;
+                        const selectedFilters = selectedValues;
                         // Define the limit
                         let errorMessage = '';
 
@@ -363,6 +414,11 @@ console.log('selectedValues', selectedValues);
                             onSelectionChange({
                                 selectedItems,
                                 errorMessage,
+                            });
+                        }
+                        if (onSelectionFilters) {
+                            onSelectionFilters({
+                                selectedFilters,
                             });
                         }
                     });
@@ -599,38 +655,64 @@ console.log('selectedValues', selectedValues);
 
                         if (resultSet.plot_type === 2) {
                             optionsTmp = {
+                                chart: {
+                                    title: 'Nearby galaxies',
+                                    subtitle: 'distance on the left, brightness on the right'
+                                },
+                                title: resultSet.table[0][2] || 'Default Graph Label',
                                 chartType: 'Bar',
                                 dataTable: rows,
                                 containerId: 'chart',
                                 options: {
-                                    stacked: true,
+                                    chart: {
+                                        title: resultSet.table[0][2] || 'Default Graph Title',
+                                    },
+                                    title: resultSet.table[0][2] || 'Default Graph Title', // Main chart title
+                                    stacked: true, // Enable stacking
+                                    bars: 'vertical', // Vertical bar chart
+                                    axes: {
+                                        x: {
+                                            0: {
+                                                side: 'bottom',
+                                                label: resultSet.table[0][0] || 'Default X-Axis Label',
+                                                slantedText: true,
+                                                slantedTextAngle: 45
+                                            } // Top x-axis.
+                                        },
+                                        y: {
+                                            0: {
+                                                side: 'left',
+                                                label: resultSet.table[0][1] || 'Default Y-Axis Label',
+                                                maxValue: findMaxInRange(resultSet),
+                                            } // Top y-axis.
+                                        }
+                                    },
+                                    hAxis: {
+                                        slantedText: true
+                                    },
+                                    chartArea: {
+                                        left: 70, // Adjust padding for Y-axis title
+                                        right: 70, // Adjust padding to avoid clipping
+                                        top: 80, // Adjust top padding to fit chart title
+                                        bottom: 90, // Adjust bottom padding for X-axis title and labels
+                                        width: '80%',
+                                        height: '70%',
+                                    },
+                                    bar: { groupWidth: '90%' }, // Adjust bar width for better aesthetics
+                                    tooltip: {
+                                        isHtml: true,
+                                        trigger: 'focus', // Trigger tooltip on focus
+                                    },
                                     legend: {
                                         position: 'right',
                                         alignment: 'center',
                                         textStyle: { color: '#000', fontSize: 12 },
-                                        trigger: 'hover', // Highlight data when hovering over legend items
                                     },
-                                    bars: 'vertical',
-                                    vAxis: {
-                                        title: resultSet.table[0][0] || 'Default Y-Axis Label', // Dynamically set title
-                                        minValue: 0, // Preserving existing functionality
-                                    },
-                                    hAxis: {
-                                        title: resultSet.table[0][1]|| 'Default X-Axis Label', // Add X-axis title dynamically
-                                        slantedText: true
-                                    },
-                                    bar: { groupWidth: '99%' },
-                                    tooltip: {
-                                        isHtml: true,
-                                        trigger: 'focus',
-                                        showColorCode: true,
-                                    },
-                                    chartArea: { left: '10%', right: '60%' },
-                                    height: winHeight,
-                                    width: winWidth,
-                                    fontFamily: 'Montserrat',
-                                    fontsize: '10',
-                                    series: resultSet.series,
+                                    height: winHeight, // Dynamic height for the chart
+                                    width: winWidth, // Dynamic width for the chart
+                                    fontFamily: 'Montserrat', // Set global font
+                                    fontSize: '10', // Set global font size
+                                    series: resultSet.series, // Series data passed dynamically
                                 },
                                 view: { 'columns': resultSet.view }
                             };
@@ -722,11 +804,35 @@ console.log('selectedValues', selectedValues);
                             }
 
                             optionsTmp = {
-                                chartType: 'LineChart',
+                                chartType: 'Line',
                                 dataTable: rows,
                                 containerId: 'chart',
                                 options: {
+                                    chart: {
+                                        title: resultSet.table[0][2] || 'Default Graph Title',
+                                    },
                                     title: resultSet.table[0][2] || 'Default Graph Label',
+                                    axes: {
+                                        x: {
+                                            0: {
+                                                side: 'bottom',
+                                                label: resultSet.table[0][1] || 'Default X-Axis Label',
+                                                slantedText: true,
+                                                slantedTextAngle: 45,
+                                            } // Top x-axis.
+                                        },
+                                        y: {
+                                            0: {
+                                                side: 'left',
+                                                label: resultSet.table[0][0] || 'Default Y-Axis Label',
+                                                maxValue: findMaxInRange(resultSet),
+                                                range: {
+                                                    max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
+                                                    min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                                }
+                                            } // Top y-axis.
+                                        }
+                                    },
                                     vAxis: {
                                         title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
                                         maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
@@ -749,12 +855,13 @@ console.log('selectedValues', selectedValues);
                                     hAxis: {
                                         title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically
                                         slantedText: true,
+                                        scaleType: 'mirrorLog'
                                     },
                                     height: winHeight,
                                     lineWidth: 2,
                                     interpolateNulls: true,
                                     legend: {
-                                        position: 'right',
+                                        position: 'left',
                                         alignment: 'center',
                                         textStyle: { color: '#000', fontSize: 12 },
                                         trigger: 'hover', // Highlight data when hovering over legend items
@@ -768,7 +875,7 @@ console.log('selectedValues', selectedValues);
                                     },
                                     tooltip: {
                                         isHtml: true,
-                                        trigger: 'focus',
+                                        trigger: 'selection',
                                         showColorCode: true,
                                     },
                                     series: {

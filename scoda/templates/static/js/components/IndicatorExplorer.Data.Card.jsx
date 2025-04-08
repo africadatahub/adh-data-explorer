@@ -28,7 +28,8 @@ export default class IndicatorExplorerDataCard extends Component {
           errorMessage: '',
           selectedItems: 0, // Array of selected items
           selectedCountries: [],
-          selectedFilters: []
+          selectedFilters: [],
+          graphName: '',
         }
 
       this.handleFiltersChange = this.handleFiltersChange.bind(this);
@@ -127,6 +128,7 @@ export default class IndicatorExplorerDataCard extends Component {
                     this.setState({mapFilter: 'NA'});
                     this.setState({dataset: resultSet.data});
                     this.setState({table: resultSet.data.table});
+                    this.setState({graphName: resultSet.data.table[0][2]});
                     this.setState(prevState => ({selectedFilters: prevState.selectedFilters || []}));
 
                     this.toggleComponentDisplay(true);
@@ -225,7 +227,7 @@ export default class IndicatorExplorerDataCard extends Component {
                                     </div>
                                     <div className="col-md-12 col-lg-9 col-xl-9 pr-0">
                                     <IndicatorExplorerDataBox 
-                                            resultTitle="Plotting Window"
+                                            resultTitle={`Plotting Window - ${this.state.graphName}`}
                                             results={this.state.dataset}
                                             resultType="chart"
                                             filterYear={this.state.selectedYear}
@@ -240,7 +242,7 @@ export default class IndicatorExplorerDataCard extends Component {
                                 <div className="row">
                                 <div className="col-md-12 col-lg-12 col-xl-12 p-0">
                                 <IndicatorExplorerDataBox 
-                                            resultTitle="Selected Data"
+                                            resultTitle={`Selected Data - ${this.state.graphName}`}
                                             results={this.state.dataset}
                                             resultType="table"
                                             filterYear={this.state.selectedYear}

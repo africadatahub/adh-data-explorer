@@ -51,7 +51,8 @@ export default class IndicatorExplorerDataCardHeader extends Component {
     filterData() {
         let selectedIndex = document.getElementById('selector').value;
         this.props.filterHook(selectedIndex);
-        console.log(selectedIndex)
+
+      console.log(selectedIndex)
         document.getElementById('button-search').classList.add('ie-button-inactive');
     }
     

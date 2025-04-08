@@ -170,7 +170,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                     slantedText: true,
                                 },
                                 height: winHeight,
-                                lineWidth: 4,
+                                lineWidth: 2,
                                 interpolateNulls: true,
                                 legend: {
                                     position: 'right',
@@ -191,8 +191,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                     showColorCode: true,
                                 },
                                 series: {
-                                    0: { color: '#007bff', lineWidth: 3 },
-                                    1: { color: '#ff5733', lineWidth: 3 },
+                                    0: { color: '#007bff', lineWidth: 1.5 },
+                                    1: { color: '#ff5733', lineWidth: 1.5 },
                                 },
                             }
                         };
@@ -627,7 +627,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                         slantedText: true,
                                     },
                                     height: winHeight,
-                                    lineWidth: 4,
+                                    lineWidth: 2,
                                     interpolateNulls: true,
                                     legend: {
                                         position: 'right',
@@ -648,8 +648,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                         showColorCode: true,
                                     },
                                     series: {
-                                        0: { color: '#007bff', lineWidth: 3 },
-                                        1: { color: '#ff5733', lineWidth: 3 },
+                                        0: { color: '#007bff', lineWidth: 1.5 },
+                                        1: { color: '#ff5733', lineWidth: 1.5 },
                                     },
                                 }
                             };

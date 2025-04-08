@@ -20,7 +20,7 @@ export default class IndicatorExplorerDataCard extends Component {
             dataset:[],
             table:[],
             selectedYear:'2010',
-            mapFilter:'NA',
+          mapFilter:'NA',
             display:false,
             modal: false,
             loader:false
@@ -160,7 +160,7 @@ export default class IndicatorExplorerDataCard extends Component {
         }
     }
 
-    render() {
+  render() {
         let modalCloseIcon = <i className="modal-close fa fa-times" aria-hidden="true" onClick={this.toggleModal}></i>;
 
         return (

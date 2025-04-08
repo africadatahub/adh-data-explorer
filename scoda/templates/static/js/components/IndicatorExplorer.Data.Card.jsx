@@ -117,7 +117,7 @@ class IndicatorExplorerDataCard extends Component {
 
       console.log('Filtering data with indicatorId:', indicatorId || this.state.selectedIndicatorId);
 
-      const id = this.state.selectedIndicatorId || indicatorId;
+      const id =  indicatorId || this.state.selectedIndicatorId;
 
       let resultSet = await axios.get(`/api/explore/codebook?indicator_id=${id}`).catch(error => {
             this.hideLoader();

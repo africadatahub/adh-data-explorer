@@ -47,6 +47,10 @@
       .select2-container .select2-search--inline .select2-search__field::-webkit-search-cancel-button {
         -webkit-appearance: none; }
 
+.select2-search {
+  display: block !important;
+}
+
 .select2-dropdown {
   background-color: white;
   border: 1px solid #aaa;

@@ -6,7 +6,6 @@ import IndicatorExplorerDataCard from '../components/IndicatorExplorer.Data.Card
 export default class IndicatorExplorer extends Component {
     constructor(props) {
         super(props);
-      console.log('Initial Props:', props);
       this.state = {
         selectedYear: props.selectedYear || '2010', // Use props for initial state
         selectedFilters: props.selectedFilters || [], // Use props for initial state
@@ -18,7 +17,6 @@ export default class IndicatorExplorer extends Component {
 
   componentDidMount() {
     const queryParams = new URLSearchParams(this.props.location.search);
-    console.log('URL on mount:', this.props.location.search);
     const selectedYear = queryParams.get('selectedYear') || '2010';
     const selectedIndicatorId = queryParams.get('selectedIndicatorId') || '1';
     const selectedFilters = queryParams.get('selectedFilters')

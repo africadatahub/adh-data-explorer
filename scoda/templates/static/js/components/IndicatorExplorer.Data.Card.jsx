@@ -115,15 +115,12 @@ class IndicatorExplorerDataCard extends Component {
 
         this.toggleComponentDisplay(false);
 
-      console.log('Filtering data with indicatorId:', indicatorId || this.state.selectedIndicatorId);
-
-      const id = this.state.selectedIndicatorId || indicatorId;
+      const id =  indicatorId || this.state.selectedIndicatorId;
 
       let resultSet = await axios.get(`/api/explore/codebook?indicator_id=${id}`).catch(error => {
             this.hideLoader();
             this.setState({modal:true, toggle:true});
         });
-      console.log('API Response:', resultSet.data);
 
       try
         {
@@ -206,10 +203,6 @@ class IndicatorExplorerDataCard extends Component {
     const selectedFilters = queryParams.get('selectedFilters')
       ? queryParams.get('selectedFilters').split(',')
       : [];
-
-    console.log('Selected Year:', selectedYear);
-    console.log('Selected Indicator ID:', selectedIndicatorId);
-    console.log('Selected Filters:', selectedFilters);
 
     this.setState({ selectedYear, selectedIndicatorId, selectedFilters });
   }

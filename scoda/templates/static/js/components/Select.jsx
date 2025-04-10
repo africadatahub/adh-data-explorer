@@ -28,7 +28,6 @@ export default class Select extends Component {
         className={["select "] + this.props.className}
         disabled={this.props.disabled}
         onChange={this.props.onChange}
-        name={this.props.name} 
         value={this.props.value}
         required
         // required={required}

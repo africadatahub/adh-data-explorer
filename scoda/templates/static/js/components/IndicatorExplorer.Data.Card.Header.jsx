@@ -2,6 +2,9 @@ import React, { Component } from 'react';
 // import Select from './Select';
 import $ from 'jquery'
 import select2 from 'select2';
+import Select from "react-select";
+import "select2";
+import "select2/dist/css/select2.min.css";
 import { Container, Row, Col, Modal, ModalBody, Spinner } from 'reactstrap';
 
 
@@ -21,21 +24,81 @@ export default class IndicatorExplorerDataCardHeader extends Component {
         setTimeout(function(){
             this.setState({loader:false});
        }.bind(this),5000);  // wait 5 seconds, then reset to false
-        $('#selector').select2({
-            placeholder:"Empty"
-            }
-        );
-        $('#selector').on('select2:select', function (e) { 
-            let filterValue = document.getElementById('selector').value;
 
-            if(filterValue > 0) {
-              document.getElementById('button-search').classList.remove('ie-button-inactive');
-            }
-            else {
-                document.getElementById('button-search').classList.add('ie-button-inactive');
-            }
+      // Define the custom matcher for the dropdown
+
+      function matchStart(params, data) {
+        // If there are no search terms, return all of the data
+        if ($.trim(params.term) === '') {
+          return data;
+        }
+
+        // Skip if there is no 'children' property
+        if (typeof data.children === 'undefined') {
+          return null;
+        }
+
+        // `data.children` contains the actual options that we are matching against
+        var filteredChildren = [];
+        $.each(data.children, function (idx, child) {
+          if (child.text.toUpperCase().indexOf(params.term.toUpperCase()) == 0) {
+            filteredChildren.push(child);
+          }
         });
-        this.props.filterHook(this.props.selectedIndicatorId || 1)
+
+        // If we matched any of the timezone group's children, then set the matched children on the group
+        // and return the group object
+        if (filteredChildren.length) {
+          var modifiedData = $.extend({}, data, true);
+          modifiedData.children = filteredChildren;
+
+          // You can return modified objects from here
+          // This includes matching the `children` how you want in nested data sets
+          return modifiedData;
+        }
+
+        // Return `null` if the term should not be displayed
+        return null;
+      }
+
+      $('#selector').select2({
+            placeholder: "Please select or search an indicator",
+          allowClear: true, // Allow clearing the selection
+          minimumResultsForSearch: 0,
+          minimumInputLength: 0, // Allow search to start with no minimum input restriction
+          width: '100%', // Ensure dropdown width matches the container
+          matcher: matchStart, // Apply the custom matcher
+        }
+        );
+
+      // Trigger filtering on selection
+      $('#selector').on('select2:select', (e) => {
+        const selectedValue = $('#selector').val();
+
+        if (selectedValue) {
+          document.getElementById('button-search').classList.remove('ie-button-inactive');
+          this.filterData(); // Filter data based on the selection
+        } else {
+          document.getElementById('button-search').classList.add('ie-button-inactive');
+        }
+      });
+
+      // Handle Enter key press for search
+      $('#selector').on('keypress', (e) => {
+        if (e.which === 13) { // Enter key code
+          this.filterData();
+        }
+      });
+
+      $('#selector').on('select2:open', () => {
+        setTimeout(() => {
+          $('.select2-search').css({ display: 'block', visibility: 'visible', opacity: 1 });
+          $('.select2-search__field').css({ display: 'block', width: '100%', height: 'auto' });
+        }, 100); // Ensure enough time for rendering
+
+      });
+
+      this.props.filterHook(this.props.selectedIndicatorId || 1)
             
     }
 
@@ -50,9 +113,8 @@ export default class IndicatorExplorerDataCardHeader extends Component {
 
     filterData() {
         let selectedIndex = document.getElementById('selector').value;
-        this.props.filterHook(selectedIndex || this.props.selectedIndicatorId);
+        this.props.filterHook(selectedIndex);
 
-      console.log(selectedIndex)
         document.getElementById('button-search').classList.add('ie-button-inactive');
     }
     
@@ -66,6 +128,7 @@ export default class IndicatorExplorerDataCardHeader extends Component {
             key={index}
             value={datasetValue}
             selected={datasetValue === this.props.selectedIndicatorId} // Mark as selected if it matches
+            title={datasetLabel} // Shows the full name on hover
           >
             {datasetLabel}
           </option>
@@ -86,7 +149,8 @@ export default class IndicatorExplorerDataCardHeader extends Component {
         return (
             
             <div className="row">
-                {this.state.loader ?                 <Modal id="loader" isOpen={this.state.loader} className="modal-dialog-centered loader">
+                {this.state.loader ?
+                  <Modal id="loader" isOpen={this.state.loader} className="modal-dialog-centered loader">
                     <ModalBody>
                         <div className="row">
                             <div className="col-2"></div>
@@ -110,7 +174,11 @@ export default class IndicatorExplorerDataCardHeader extends Component {
                         </div>
                         <div className="row">
                             <div className="col">
-                              <select id="selector" className="ie-dropdown mb-2" onChange={this.enableFilter}>
+                              <select
+                                id="selector"
+                                className="ie-dropdown mb-2"
+                                onChange={this.enableFilter}
+                              >
                                   {currentOption.length ? currentOption : <option value="0">Empty</option>}
                                   {selectorOptions}
 
@@ -120,7 +188,7 @@ export default class IndicatorExplorerDataCardHeader extends Component {
                             <div className='ie-spacer'></div>
                         <div className="row">
                             <div className="col-6">
-                                <div id="button-search" className="ie-button-search ie-button-search-explorer ie-button-inactive" style={{width:'170px'}} onClick={this.filterData}>Display the Data</div>
+                                <div id="button-search" className="ie-button-search ie-button-search-explorer ie-button-inactive" style={{width:'170px', visibility: 'hidden'}} onClick={this.filterData}>Display the Data</div>
                             </div>
                             <div className="col-6">
                                  {/* <div className="ie-button-reset" onClick={this.resetForm}>Reset Form</div> */}

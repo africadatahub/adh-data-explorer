@@ -256,7 +256,7 @@ export default class IndicatorExplorerDataBox extends Component {
                         <div className="mt-2 ml-3 mb-4">
                             {this.renderDataSet(this.props.resultType,this.props.filter)}
                         </div>
-                        <input type="hidden" id="csv"></input>
+                        {/*<input type="hidden" id="csv"></input>*/}
                         <canvas style={{display:'none'}}></canvas>
                     </div>
                 </div>

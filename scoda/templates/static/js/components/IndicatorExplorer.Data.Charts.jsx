@@ -19,16 +19,30 @@ export default class IndicatorExplorerDataChart extends PureComponent {
         window.addEventListener('resize', this.handleResize);
 
         this.handleResize();
-    }
-
-    componentDidUpdate() {
-        window.addEventListener('resize', this.handleResize);
-        this.handleResize();
 
         if (this.props.data.length !== 0) {
             this.loadGoogleVizApi(this.props.data, this.props.filterYear, '100%', '100%');
         }
 
+    }
+
+    componentDidUpdate(prevProps) {
+        window.addEventListener('resize', this.handleResize);
+        this.handleResize();
+
+        if (
+          JSON.stringify(this.props.data) !== JSON.stringify(prevProps.data) ||
+          this.props.filterYear !== prevProps.filterYear
+        ) {
+            this.loadGoogleVizApi(this.props.data, this.props.filterYear, '100%', '100%');
+        }
+
+
+    }
+
+    componentWillUnmount() {
+        // Cleanup event listener to avoid memory leaks
+        window.removeEventListener('resize', this.handleResize);
     }
 
     handleResize() {
@@ -115,7 +129,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             throw new Error('resultSet.table is not valid.');
                         }
 
-                        let max = 0; // Start with the smallest possible number
+                        let max = -Infinity; // Start with the smallest possible number
 
                         // Iterate over rows
                         const data = resultSet.table.slice(1).filter((row) => selectedFilters.includes(row[0]));
@@ -126,7 +140,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             }
                         });
 
-                        return max === 0 ? 0 : max + 0.199; // Return null if no valid numbers are found
+                        return max === 0 ? -Infinity : max + 0.199; // Return null if no valid numbers are found
                     };
 
                     if (resultSet.plot_type === 2) {
@@ -656,8 +670,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         if (resultSet.plot_type === 2) {
                             optionsTmp = {
                                 chart: {
-                                    title: 'Nearby galaxies',
-                                    subtitle: 'distance on the left, brightness on the right'
+                                    title: resultSet.table[0][2] || 'Default Graph Title',
                                 },
                                 title: resultSet.table[0][2] || 'Default Graph Label',
                                 chartType: 'Bar',
@@ -906,6 +919,11 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
                                 let canvas = document.querySelector('canvas');
                                 let ctx = canvas.getContext('2d');
+
+                                if (svg) {
+                                    console.error("svg", svg);
+                                    return;
+                                }
 
                                 let renderObject = canvg.fromString(ctx, svg);
 

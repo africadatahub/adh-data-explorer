@@ -264,11 +264,8 @@ class IndicatorExplorerDataCard extends Component {
                                         toggle = {this.toggleComponentDisplay}
                                         filterYear={this.state.selectedYear}
                                         selectedIndicatorId={this.props.selectedIndicatorId}
+                                        copyFiltersToClipboard={this.copyFiltersToClipboard}
                                       />
-                                    <div>
-                                      <h1>Shareable</h1>
-                                      <div id="button-copy-link" className="ie-button-search ie-button-search-explorer" style={{width:'170px'}} onClick={this.copyFiltersToClipboard}>Copy Link</div>
-                                    </div>
                                   </div>
                               </div>
                             </div>

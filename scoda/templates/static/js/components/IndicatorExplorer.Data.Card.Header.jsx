@@ -186,13 +186,33 @@ export default class IndicatorExplorerDataCardHeader extends Component {
                             </div>
                         </div>
                             <div className='ie-spacer'></div>
-                        <div className="row">
-                            <div className="col-6">
+                        <div
+                          className="row"
+                          style={{display: 'flex', justifyContent: 'space-between'}}
+                        >
+                            <div>
                                 <div id="button-search" className="ie-button-search ie-button-search-explorer ie-button-inactive" style={{width:'170px', visibility: 'hidden'}} onClick={this.filterData}>Display the Data</div>
                             </div>
-                            <div className="col-6">
-                                 {/* <div className="ie-button-reset" onClick={this.resetForm}>Reset Form</div> */}
+                            {/*<div className="col-6">*/}
+                            {/*     /!* <div className="ie-button-reset" onClick={this.resetForm}>Reset Form</div> *!/*/}
+                            {/*</div>*/}
+                          <div>
+                            <div
+                              id="button-copy-link"
+                              style={{
+                              textDecoration: 'underline',
+                              color: '#CACACA',
+                              fontStyle: 'italic',
+                              fontWeight: '400',
+                                cursor: 'pointer',
+                                textAlign: 'center',
+                                padding: '10px'
+                            }}
+                              onClick={this.props.copyFiltersToClipboard}
+                            >
+                              <i className="modal-close fa fa-share-alt"></i> Share your filter selection
                             </div>
+                          </div>
                         </div>
 
                     </div>

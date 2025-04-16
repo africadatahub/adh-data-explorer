@@ -1,27 +1,30 @@
-//Imports
-import React, {Suspense, lazy} from 'react';
-import { HashRouter, Route } from 'react-router-dom';
-import createHistory from "history/createBrowserHistory"
-import loader from "./gif/Spinner.gif"
+// Imports
+import React, { Suspense, lazy } from 'react';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import loader from './gif/Spinner.gif';
 
-const About =  lazy(() => import('./templates/About'));
+const About = lazy(() => import('./templates/About'));
 
 const style = {
-      position: 'absolute', left: '50%', top: '50%',
-      transform: 'translate(-50%, -50%)'
+  position: 'absolute',
+  left: '50%',
+  top: '50%',
+  transform: 'translate(-50%, -50%)',
 };
 
-export const history = createHistory()
-
-history.listen(() => {
-    window.scrollTo(0, 0)
-})
-
-// import more components
-export default (
-    <HashRouter history={history}>
-    <Suspense fallback={<div style={style}><img src={loader} alt='Loader'></img></div>}>
-      <Route exact path='/' component={()=> <About />} />
+// Define your routes
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <About />
       </Suspense>
-    </HashRouter>
-);
+    ),
+  },
+]);
+
+// Export the Router Provider
+export default function App() {
+  return <RouterProvider router={router} />;
+}

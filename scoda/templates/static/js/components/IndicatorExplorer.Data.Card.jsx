@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import { Modal, ModalHeader, ModalBody, Spinner } from 'reactstrap';
-import { withRouter } from 'react-router-dom'; // Import withRouter for routing context
 
 import $ from 'jquery';
 
@@ -330,11 +329,15 @@ class IndicatorExplorerDataCard extends Component {
                 <ModalBody>
                   <div className="row">
                     <div className="col-2"></div>
-                    <div className="col-0 ml-3 pt-4"> 
-                      <Spinner type="grow" color="secondary" size="sm"/>
-                      <Spinner type="grow" color="success" size="sm"/>
-                      <Spinner type="grow" color="danger" size="sm"/>
-                      <Spinner type="grow" color="warning" size="sm"/>
+                    <div className="col-0 ml-3 pt-4">
+                      <Spinner type="grow" color="secondary" style={{color: 'white', fontSize: '0px'}} size="sm"><span
+                        className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
+                      <Spinner type="grow" color="success" style={{ color: 'white', fontSize: '0px'}} size="sm"><span
+                        className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
+                      <Spinner type="grow" color="danger" style={{ color: 'white', fontSize: '0px'}} size="sm"><span
+                        className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
+                      <Spinner type="grow" color="warning" style={{ color: 'white', fontSize: '100px'}} size="sm"><span
+                        className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
                       </div>
                     <div className="col-0 pt-4 pl-4 float-left">Loading Content...</div>
                   </div>
@@ -347,4 +350,4 @@ class IndicatorExplorerDataCard extends Component {
     }
 }
 
-export default withRouter(IndicatorExplorerDataCard);
+export default IndicatorExplorerDataCard;

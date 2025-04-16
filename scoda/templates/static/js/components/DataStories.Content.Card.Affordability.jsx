@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 
-import Chart from 'chart.js';
+import {Chart} from 'chart.js';
 
 import Image from '../components/Image';
 

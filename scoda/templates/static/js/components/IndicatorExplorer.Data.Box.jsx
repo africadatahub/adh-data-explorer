@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 
 import $, { data } from 'jquery';
-import canvg from 'canvg';
+import {Canvg} from 'canvg';
 
 import IndicatorExplorerDataChart from '../components/IndicatorExplorer.Data.Charts';
 import IndicatorExplorerDataTable from '../components/IndicatorExplorer.Data.Table';

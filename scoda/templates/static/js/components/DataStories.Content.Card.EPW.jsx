@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import {Pie} from 'react-chartjs-2';
-import Chart from 'chart.js';
+import {Chart} from 'chart.js';
 import Select from './Select';
 
 import Image from '../components/Image';

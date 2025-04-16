@@ -1,7 +1,7 @@
 import React, { PureComponent } from 'react';
 
 import $ from 'jquery';
-import canvg from 'canvg';
+import {Canvg} from 'canvg';
 
 export default class IndicatorExplorerDataChart extends PureComponent {
     constructor(props) {

@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import $, { data } from 'jquery';
-import canvg from 'canvg';
+import {Canvg} from 'canvg';
 
 export default class DemographicModellerDataBoxSmallChart extends Component {
     constructor(props) {

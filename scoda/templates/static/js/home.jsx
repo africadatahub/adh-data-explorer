@@ -1,12 +1,12 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import routes from "./home";
+import React from "react";
+import { createRoot } from "react-dom/client"; // React 18+ API
+import App from "./home"; // Import the App component from home.js
 
-ReactDOM.render(routes, document.getElementById("content-scoda"));
+// Find the root element where React will render the app
+const rootElement = document.getElementById("content-scoda");
 
-// Redirect to /#/home
-// var root_url = window.location.origin + '/scoda/#/'
-// if (document.location.href == root_url) {
-//   var new_url = window.location.origin + '/scoda/#/home';
-//   location.replace(new_url);
-// }
+// Use createRoot to initialize React rendering
+if (rootElement) {
+	const root = createRoot(rootElement);
+	root.render(<App />); // Render App as JSX by wrapping it in angle brackets
+}

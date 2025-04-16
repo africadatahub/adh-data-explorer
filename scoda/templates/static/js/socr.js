@@ -1,9 +1,9 @@
-//Imports
+// Imports
 import React, { Suspense, lazy } from 'react';
-import { HashRouter, Route } from 'react-router-dom';
-import createHistory from "history/createBrowserHistory"
-import loader from "./gif/Spinner.gif"
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import loader from "./gif/Spinner.gif";
 
+// Lazy-loaded route components
 const SoCR = lazy(() => import('./templates/SoCR'));
 const CitizenEngagements = lazy(() => import('./templates/CitizenEngagementNew'));
 const ServiceDelivery = lazy(() => import('./templates/ServiceDeliveryNew'));
@@ -13,49 +13,156 @@ const PeopleAndHousehold = lazy(() => import('./templates/PeopleAndHousehold'));
 const Employment = lazy(() => import('./templates/Employment'));
 const Dwellings = lazy(() => import('./templates/Dwellings'));
 const HouseholdIncome = lazy(() => import('./templates/HouseholdIncome'));
-const LifeExpectancy = lazy(()=> import('./templates/LifeExpectancyAndHealth'))
-const FoodSecurity = lazy(()=> import('./templates/FoodSecurityLiteracyAndInequality'))
-const Education = lazy(()=> import('./templates/Education'))
-const Sustainability = lazy(()=> import('./templates/Sustainability'))
-const Infrastructure = lazy(() => import('./templates/Infrastrucutre'))
-const TransportMode = lazy(() => import('./templates/TransportMode'))
-const PublicTransportSpend = lazy(() => import('./templates/PublicTransport'))
-const TravelTime = lazy(() => import('./templates/TravelTime'))
+const LifeExpectancy = lazy(() => import('./templates/LifeExpectancyAndHealth'));
+const FoodSecurity = lazy(() => import('./templates/FoodSecurityLiteracyAndInequality'));
+const Education = lazy(() => import('./templates/Education'));
+const Sustainability = lazy(() => import('./templates/Sustainability'));
+const Infrastructure = lazy(() => import('./templates/Infrastrucutre'));
+const TransportMode = lazy(() => import('./templates/TransportMode'));
+const PublicTransportSpend = lazy(() => import('./templates/PublicTransport'));
+const TravelTime = lazy(() => import('./templates/TravelTime'));
 
+// Fallback loading spinner style
 const style = {
-  position: 'absolute', left: '50%', top: '50%',
+  position: 'absolute',
+  left: '50%',
+  top: '50%',
   transform: 'translate(-50%, -50%)'
 };
 
-export const history = createHistory()
+// Route configuration using createBrowserRouter
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <SoCR />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/citizen_engagement',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <CitizenEngagements />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/service_delivery',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <ServiceDelivery />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/human_resources',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <HumanResources />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/people_household',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <PeopleAndHousehold />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/employment',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <Employment />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/dwellings',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <Dwellings />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/household_income',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <HouseholdIncome />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/life_expectancy',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <LifeExpectancy />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/food_security',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <FoodSecurity />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/education',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <Education />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/sustainability',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <Sustainability />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/infrastructure',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <Infrastructure />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/transport_mode',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <TransportMode />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/public_transport_spend',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <PublicTransportSpend />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/travel_time',
+    element: (
+      <Suspense fallback={<div style={style}><img src={loader} alt="Loader" /></div>}>
+        <TravelTime />
+      </Suspense>
+    ),
+  },
+]);
 
-history.listen(() => {
-  window.scrollTo(0, 0)
-})
-
-// import more components
-export default (
-  <HashRouter history={history}>
-
-    <Suspense fallback={<div style={style}><img src={loader} alt='Loader'></img></div>}>
-
-      <Route exact path='/' component={SoCR} />
-      <Route exact path='/citizen_engagement' component={CitizenEngagements} />
-      <Route exact path='/service_delivery' component={ServiceDelivery} />
-      <Route exact path='/human_resources' component={HumanResources} />
-      {/* <Route exact path='/city_finances' component={CityFinances} /> */}
-      <Route exact path='/people_household' component={PeopleAndHousehold} />
-      <Route exact path='/employment' component={Employment} />
-      <Route exact path='/dwellings' component={Dwellings} />
-      <Route exact path='/household_income' component={HouseholdIncome} />
-      <Route exact path='/life_expectancy' component={LifeExpectancy}/>
-      <Route exact path='/food_security' component={FoodSecurity}/>
-      <Route exact path='/education' component={Education}/>
-      <Route exact path='/sustainability' component={Sustainability}/>
-      <Route exact path='/infrastructure' component={Infrastructure}/>
-      <Route exact path='/transport_mode' component={TransportMode}/>
-      <Route exact path='/public_transport_spend' component={PublicTransportSpend}/>
-      <Route exact path='/travel_time' component={TravelTime}/>
-    </Suspense>
-  </HashRouter>
-);
+// Export the RouterProvider
+export default function App() {
+  return <RouterProvider router={router} />;
+}

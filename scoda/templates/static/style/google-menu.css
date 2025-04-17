@@ -1,0 +1,47 @@
+.custom-dropdown-height {
+    background: #fff;
+    border-color: #ccc #666 #666 #ccc;
+    border-style: solid;
+    border-width: 1px;
+    cursor: default;
+    font: normal 13px Arial, sans-serif;
+    margin: 0;
+    outline: none;
+    padding: 4px 0;
+    position: absolute;
+    z-index: 20000;
+    max-height: 36.2px;
+    overflow-y: auto;
+}
+
+.disabled-option .goog-menuitem-disabled {
+    color: #aaa; /* Grey out */
+    pointer-events: none; /* Disable clicks */
+}
+
+/* Target entire dropdown menu */
+.goog-menu {
+    max-height: 160px; /* Restrict height if needed */
+    overflow-y: auto;  /* Add scroll if height is exceeded */
+    border: 1px solid #ccc; /* Add a border */
+    background-color: #f9f9f9; /* Change background color */
+}
+
+/* Target individual dropdown items */
+.goog-menuitem {
+    padding: 10px;        /* Add padding to dropdown options */
+    color: #333;          /* Set text color */
+    background: #fff;     /* Set background color */
+}
+
+/* Add hover effect for items */
+.goog-menuitem:hover {
+    background-color: #eee; /* Highlight option on hover */
+    cursor: pointer;        /* Change cursor to pointer */
+}
+
+/* Style for disabled menu items */
+.goog-menuitem-disabled {
+    color: grey;
+    pointer-events: none; /* Prevent interaction with disabled items */
+}

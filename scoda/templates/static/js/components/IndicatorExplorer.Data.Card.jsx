@@ -330,13 +330,13 @@ class IndicatorExplorerDataCard extends Component {
                   <div className="row">
                     <div className="col-2"></div>
                     <div className="col-0 ml-3 pt-4">
-                      <Spinner type="grow" color="secondary" style={{color: 'white', fontSize: '0px'}} size="sm"><span
+                      <Spinner type="grow" color="secondary" tag="span" style={{color: 'white', fontSize: '0px'}} size="sm"><span
                         className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
-                      <Spinner type="grow" color="success" style={{ color: 'white', fontSize: '0px'}} size="sm"><span
+                      <Spinner type="grow" color="success" tag="span" style={{ color: 'white', fontSize: '0px'}} size="sm"><span
                         className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
-                      <Spinner type="grow" color="danger" style={{ color: 'white', fontSize: '0px'}} size="sm"><span
+                      <Spinner type="grow" color="danger" tag="span" style={{ color: 'white', fontSize: '0px'}} size="sm"><span
                         className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
-                      <Spinner type="grow" color="warning" style={{ color: 'white', fontSize: '100px'}} size="sm"><span
+                      <Spinner type="grow" color="warning" tag="span" style={{ color: 'white', fontSize: '100px'}} size="sm"><span
                         className="visually-hidden" style={{visibility: 'hidden'}}>Loading...</span></Spinner>
                       </div>
                     <div className="col-0 pt-4 pl-4 float-left">Loading Content...</div>

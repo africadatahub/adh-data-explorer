@@ -1,4 +1,5 @@
 import React, { PureComponent } from 'react';
+import '../../style/google-menu.css'
 
 import $ from 'jquery';
 import {Canvg} from 'canvg';
@@ -337,7 +338,9 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 'allowTyping': false,
                                 'cssOptions': {
                                     // Add style for disabled options
-                                    'disabledCssClass': 'disabled-option'
+                                    'disabledCssClass': 'disabled-option',
+                                    'googleMenuCssClass': 'custom-dropdown-height'
+
                                 },
                                 'limit': 13,
                                 'caption': 'Choose a country...'
@@ -365,9 +368,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             }
                         }
                     });
-
-
-
 
                     google.visualization.events.addListener(categoryPicker1, 'statechange', function () {
                         const selectedValues = categoryPicker1.getState().selectedValues;

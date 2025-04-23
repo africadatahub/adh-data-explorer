@@ -18,7 +18,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
     componentDidMount() {
         window.addEventListener('resize', this.handleResize);
-
+        console.log('this.props.data ', this.props.data);
         this.handleResize();
 
         if (this.props.data.length !== 0) {
@@ -31,9 +31,11 @@ export default class IndicatorExplorerDataChart extends PureComponent {
         window.addEventListener('resize', this.handleResize);
         this.handleResize();
 
+        console.log('this.props.data ', this.props.data);
         if (
           JSON.stringify(this.props.data) !== JSON.stringify(prevProps.data) ||
-          this.props.filterYear !== prevProps.filterYear
+          this.props.filterYear !== prevProps.filterYear ||
+          (this.props.selectedFilters !== prevProps.selectedFilters && this.props.selectedFilters.length !== 0)
         ) {
             this.loadGoogleVizApi(this.props.data, this.props.filterYear, '100%', '100%');
         }
@@ -124,6 +126,25 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         });
                     }
 
+                    const getNextTickValue = (maxValue) => {
+                        if (maxValue <= 0) return 1; // Fallback for edge cases with non-positive numbers
+
+                        const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue))); // Get the order of magnitude
+                        const baseMultiplier = (maxValue / magnitude) + .1; // Get the "leading part" (e.g., 1.129941 for 11299410)
+
+                        // Round up to the next closest logical clean number
+                        let nextTick
+                       if ( baseMultiplier <= 1.999999999) {
+                            nextTick = baseMultiplier * magnitude;
+                        } else {
+                            nextTick = Math.ceil(baseMultiplier) * magnitude;
+                        }
+
+                        return nextTick;
+
+                    };
+
+
                     const findMaxInRange = (resultSet) => {
                         // Safeguard to ensure the resultSet structure exists
                         if (!resultSet || !Array.isArray(resultSet.table)) {
@@ -141,7 +162,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             }
                         });
 
-                        return max === 0 ? -Infinity : max + 0.199; // Return null if no valid numbers are found
+                        return max === 0 ? -Infinity : getNextTickValue(max); // Return null if no valid numbers are found
                     };
 
                     if (resultSet.plot_type === 2) {
@@ -176,6 +197,15 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                             label: resultSet.table[0][1] || 'Default Y-Axis Label',
                                             maxValue: findMaxInRange(resultSet),
                                         } // Top y-axis.
+                                    }
+                                },
+                                vAxis: {
+                                    title: "Y-Axis Label",
+                                    viewWindow: {
+                                        max: findMaxInRange(resultSet) + 1, // Adding some padding
+                                    },
+                                    annotations: {
+                                        alwaysOutside: true
                                     }
                                 },
                                 hAxis: {
@@ -278,7 +308,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                     right: 200,
                                     top: 50,
                                     width: '95%',
-                                    height: '70%',
+                                    height: '80%',
                                 },
                                 tooltip: {
                                     isHtml: true,
@@ -295,6 +325,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                     }
 
                     let bar = new google.visualization.ChartWrapper(options);
+
 
                     let cssClassNames = {
                         'headerRow': 'google-visualization-table-table',
@@ -472,6 +503,18 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         dashboard.bind([categoryPicker1], [table]);
 
                         dashboard.draw(data);
+                    }
+
+                    if (resultSet.table[0][2].length > 66) {
+                        google.visualization.events.addListener(bar, 'ready', () => {
+                            const svg = document.querySelector('#chart svg');
+                            if (svg) {
+                                const tspans = svg.querySelectorAll('text tspan');
+                                tspans.forEach(tspan => {
+                                    tspan.setAttribute('y', '15.5');
+                                });
+                            }
+                        });
                     }
 
                     google.visualization.events.addListener(table, 'ready', function (event) {
@@ -934,7 +977,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 document.getElementById('chartPng').value = dataUri;
 
                                 document.body.removeChild(tmpDiv);
-
                             });
 
                         function transposeDataTable(dataTable) {

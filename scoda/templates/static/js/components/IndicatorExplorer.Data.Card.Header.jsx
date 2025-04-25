@@ -20,72 +20,61 @@ export default class IndicatorExplorerDataCardHeader extends Component {
         
     }
 
+  matchStart(params, data) {
+    // If there's no search term, return the data (match all options)
+    if (!params.term || $.trim(params.term) === '') {
+      return data;
+    }
+
+    // Check if it's a flat item (doesn't have children)
+    if (!data.children) {
+      // Match the text of the flat item with the search term
+      if (data.text.toUpperCase().startsWith(params.term.toUpperCase())) {
+        return data;
+      }
+      return null; // No match
+    }
+
+    // If it has children, filter them recursively
+    const filteredChildren = data.children.filter((child) =>
+      child.text.toUpperCase().startsWith(params.term.toUpperCase())
+    );
+
+    if (filteredChildren.length) {
+      return { ...data, children: filteredChildren }; // Return modified group with matched children
+    }
+
+    return null; // No match
+  }
+
     componentDidMount(){
         setTimeout(function(){
             this.setState({loader:false});
        }.bind(this),5000);  // wait 5 seconds, then reset to false
 
-      // Define the custom matcher for the dropdown
-
-      function matchStart(params, data) {
-        // If there are no search terms, return all of the data
-        if ($.trim(params.term) === '') {
-          return data;
-        }
-
-        // Skip if there is no 'children' property
-        if (typeof data.children === 'undefined') {
-          return null;
-        }
-
-        // `data.children` contains the actual options that we are matching against
-        var filteredChildren = [];
-        $.each(data.children, function (idx, child) {
-          if (child.text.toUpperCase().indexOf(params.term.toUpperCase()) == 0) {
-            filteredChildren.push(child);
-          }
-        });
-
-        // If we matched any of the timezone group's children, then set the matched children on the group
-        // and return the group object
-        if (filteredChildren.length) {
-          var modifiedData = $.extend({}, data, true);
-          modifiedData.children = filteredChildren;
-
-          // You can return modified objects from here
-          // This includes matching the `children` how you want in nested data sets
-          return modifiedData;
-        }
-
-        // Return `null` if the term should not be displayed
-        return null;
-      }
-
+      // Assign Select2 with a custom matcher
       $('#selector').select2({
-            placeholder: "Please select or search an indicator",
-          allowClear: true, // Allow clearing the selection
-          minimumResultsForSearch: 0,
-          minimumInputLength: 0, // Allow search to start with no minimum input restriction
-          width: '100%', // Ensure dropdown width matches the container
-          matcher: matchStart, // Apply the custom matcher
-        }
-        );
+        placeholder: "Please select or search an indicator",
+        allowClear: true,
+        minimumResultsForSearch: 0,
+        minimumInputLength: 0,
+        width: '100%',
+        matcher: this.matchStart,
+      });
 
-      // Trigger filtering on selection
+      // Attach event handlers
       $('#selector').on('select2:select', (e) => {
         const selectedValue = $('#selector').val();
-
         if (selectedValue) {
           document.getElementById('button-search').classList.remove('ie-button-inactive');
-          this.filterData(); // Filter data based on the selection
+          this.filterData();
         } else {
           document.getElementById('button-search').classList.add('ie-button-inactive');
         }
       });
 
-      // Handle Enter key press for search
       $('#selector').on('keypress', (e) => {
-        if (e.which === 13) { // Enter key code
+        if (e.which === 13) {
           this.filterData();
         }
       });
@@ -94,16 +83,40 @@ export default class IndicatorExplorerDataCardHeader extends Component {
         setTimeout(() => {
           $('.select2-search').css({ display: 'block', visibility: 'visible', opacity: 1 });
           $('.select2-search__field').css({ display: 'block', width: '100%', height: 'auto' });
-        }, 100); // Ensure enough time for rendering
-
+        }, 100);
       });
 
-      this.props.filterHook(this.props.selectedIndicatorId || 1)
-            
+      // Hook the initial filter state
+      this.props.filterHook(this.props.selectedIndicatorId || 1);
+
     }
 
+  componentDidUpdate(prevProps) {
+    if (prevProps.datasetOptions !== this.props.datasetOptions) {
+      // Destroy old instance
+      if ($('#selector').data('select2')) {
+        $('#selector').select2('destroy');
+      }
 
-    resetForm() {
+      // Reinitialize with new datasetOptions
+      $('#selector').select2({
+        placeholder: "Please select or search an indicator",
+        allowClear: true,
+        minimumInputLength: 0,
+        matcher: this.matchStart,
+      });
+    }
+  }
+
+
+  componentWillUnmount() {
+    if ($('#selector').data('select2')) {
+      $('#selector').select2('destroy'); // Remove select2 instance
+    }
+  }
+
+
+  resetForm() {
         $('#selector').select2('val', 0);
 
         document.getElementById('button-search').classList.add('ie-button-inactive');

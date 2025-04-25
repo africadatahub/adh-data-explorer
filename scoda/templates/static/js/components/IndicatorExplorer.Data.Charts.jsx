@@ -18,7 +18,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
     componentDidMount() {
         window.addEventListener('resize', this.handleResize);
-        console.log('this.props.data ', this.props.data);
         this.handleResize();
 
         if (this.props.data.length !== 0) {
@@ -31,7 +30,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
         window.addEventListener('resize', this.handleResize);
         this.handleResize();
 
-        console.log('this.props.data ', this.props.data);
         if (
           JSON.stringify(this.props.data) !== JSON.stringify(prevProps.data) ||
           this.props.filterYear !== prevProps.filterYear ||
@@ -144,6 +142,26 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
                     };
 
+                    const setMinBasedOnMax = (maxValue) => {
+                        // Handle edge cases where maxValue <= 0
+                        if (maxValue <= 0) return -0.006;
+
+                        // Calculate the magnitude of the max value
+                        const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue))); // e.g., 10, 100, 1000...
+
+                        let minValue
+                        // Define the min value dynamically based on the max value
+                        if (magnitude === 1) {
+                            minValue =  -0.006 * magnitude
+                        } else if (magnitude >= 10000000) {
+                            minValue =  -0.006 * magnitude
+                        } else {
+                            minValue =  -0.06 * magnitude // Example scaling (0.06 for 1, 0.6 for 10)
+                        }
+
+
+                        return minValue; // The lower limit suitable for the given max value
+                    };
 
                     const findMaxInRange = (resultSet) => {
                         // Safeguard to ensure the resultSet structure exists
@@ -163,6 +181,27 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         });
 
                         return max === 0 ? -Infinity : getNextTickValue(max); // Return null if no valid numbers are found
+                    };
+
+                    const findMinInRange = (resultSet) => {
+                        // Safeguard to ensure the resultSet structure exists
+                        if (!resultSet || !Array.isArray(resultSet.table)) {
+                            throw new Error('resultSet.table is not valid.');
+                        }
+
+                        let max = -Infinity; // Start with the smallest possible number
+
+                        // Extract rows matching the filters
+                        const data = resultSet.table.slice(1).filter((row) => selectedFilters.includes(row[0]));
+
+                        // Calculate the max value from the valid rows
+                        data.forEach((row) => {
+                            if (row[2] !== undefined && !isNaN(row[2])) {
+                                max = Math.max(max, Number(row[2]));
+                            }
+                        });
+
+                        return max === -Infinity ? 0 : setMinBasedOnMax(max); // Return 0 if no valid max value is found
                     };
 
                     if (resultSet.plot_type === 2) {
@@ -263,24 +302,31 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                             side: 'left',
                                             label: resultSet.table[0][0] || 'Default Y-Axis Label',
                                             maxValue: findMaxInRange(resultSet),
+                                            minValue: findMinInRange(resultSet),
                                             range: {
                                                 max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
-                                                min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
-                                            }
+                                                min: findMinInRange(resultSet)         // Set a minimum value for better scaling
+                                            },
+                                            viewWindow: {
+                                                min: findMinInRange(resultSet), // Ensure the view window is explicitly lower
+                                                max: findMaxInRange(resultSet) + 0.1, // Add space above for better scaling
+                                            },
+                                            baseline: findMinInRange(resultSet), // Set the baseline slightly lower for improved visibility
+                                            baselineColor: '#FF46A2', // Optional
                                         } // Top y-axis.
                                     }
                                 },
                                 vAxis: {
                                     title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
                                     maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
-                                    minValue: resultSet.min > 0 ? -0.1 : resultSet.min - 1,
+                                    minValue: findMinInRange(resultSet),
                                     viewWindow: {
                                         max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
-                                        min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                        min: findMinInRange(resultSet)         // Set a minimum value for better scaling
                                     },
                                     range: {
                                         max: findMaxInRange(resultSet),
-                                        min: resultSet.min > 0 ? -0.1 : resultSet.min - 1
+                                        min: findMinInRange(resultSet)
                                     },
                                     textStyle: {
                                         fontSize: 12, // Tick labels font size
@@ -288,6 +334,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                     titleTextStyle: {
                                         fontSize: 14, // Title font size
                                     },
+                                    baseline: findMinInRange(resultSet), // Set the baseline slightly lower for improved visibility
+                                    baselineColor: '#FF46A2', // Optional
                                 },
                                 hAxis: {
                                     title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically
@@ -882,24 +930,31 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                                 side: 'left',
                                                 label: resultSet.table[0][0] || 'Default Y-Axis Label',
                                                 maxValue: findMaxInRange(resultSet),
+                                                minValue: findMinInRange(resultSet),
                                                 range: {
                                                     max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
-                                                    min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
-                                                }
+                                                    min: findMinInRange(resultSet)         // Set a minimum value for better scaling
+                                                },
+                                                viewWindow: {
+                                                    min: findMinInRange(resultSet), // Ensure the view window is explicitly lower
+                                                    max: findMaxInRange(resultSet) + 0.1, // Add space above for better scaling
+                                                },
+                                                baseline: findMinInRange(resultSet), // Set the baseline slightly lower for improved visibility
+                                                baselineColor: '#FF46A2', // Optional
                                             } // Top y-axis.
                                         }
                                     },
                                     vAxis: {
                                         title: resultSet.table[0][0] || 'Default Y-Axis Label', // Same Y-axis logic
                                         maxValue: findMaxInRange(resultSet), // Apply the calculated max value here
-                                        minValue: resultSet.min > 0 ? -0.1 : resultSet.min - 1,
+                                        minValue: findMinInRange(resultSet),
                                         viewWindow: {
                                             max: findMaxInRange(resultSet), // Ensure the chart adheres to this upper limit
-                                            min: resultSet.min > 0 ? -0.1 : resultSet.min - 1         // Set a minimum value for better scaling
+                                            min: findMinInRange(resultSet)         // Set a minimum value for better scaling
                                         },
                                         range: {
                                             max: findMaxInRange(resultSet),
-                                            min: resultSet.min > 0 ? -0.1 : resultSet.min - 1
+                                            min: findMinInRange(resultSet)
                                         },
                                         textStyle: {
                                             fontSize: 12, // Tick labels font size
@@ -907,6 +962,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                         titleTextStyle: {
                                             fontSize: 14, // Title font size
                                         },
+                                        baseline: findMinInRange(resultSet), // Set the baseline slightly lower for improved visibility
+                                        baselineColor: '#FF46A2', // Optional
                                     },
                                     hAxis: {
                                         title: resultSet.table[0][1] || 'Default X-Axis Label', // Add X-axis title dynamically

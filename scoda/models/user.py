@@ -13,12 +13,13 @@ from sqlalchemy import (
     JSON
 )
 from sqlalchemy.orm import relationship
+import uuid
 from flask_security import UserMixin, RoleMixin, Security, SQLAlchemyUserDatastore
 from flask_security import LoginForm as Form
 from flask_security import RegisterForm
-from wtforms.fields.html5 import EmailField
-from wtforms import StringField, PasswordField, validators, TextField
-from wtforms.validators import DataRequired, Length, InputRequired, Required
+from wtforms.fields import EmailField
+from wtforms import StringField, PasswordField, validators
+from wtforms.validators import DataRequired, Length, InputRequired
 from wtforms.widgets import TextArea
 
 
@@ -30,8 +31,11 @@ class User(db.Model, UserMixin):
 
     id = Column(Integer, primary_key=True)
     email = Column(String(50), nullable=False, unique=True)
-    password = Column(String(100))
     disabled = Column(Boolean, default=False)
+    admin = Column(Boolean, default=False)
+
+    # Required by Flask-Security 4.0.0+
+    fs_uniquifier = Column(String(255), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     admin = Column(Boolean, default=False)
 
     first_name = Column(String(50))
@@ -100,8 +104,8 @@ class LoginForm(Form):
 
 
 class ExtendedRegisterForm(RegisterForm):
-    first_name = StringField('First Name', validators=[Required()])
-    last_name = StringField('Last Name', validators=[Required()])
+    first_name = StringField('First Name', validators=[InputRequired()])
+    last_name = StringField('Last Name', validators=[InputRequired()])
 
 
 class UserSet(db.Model):

@@ -5,7 +5,7 @@ from wtforms import StringField, validators, SelectField, SelectMultipleField
 from sqlalchemy import func
 from sqlalchemy.orm import relationship
 from wtforms.widgets import TextArea
-from wtforms.fields.html5 import DecimalRangeField
+from wtforms.fields import DecimalRangeField
 from geoalchemy2 import Geometry
 from scoda.models import Region
 

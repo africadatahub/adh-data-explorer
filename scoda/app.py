@@ -22,9 +22,9 @@ app.config['ENV'] = env
 app.config.from_pyfile('config/%s.cfg' % env)
 
 # CSRF protection
-from flask_wtf.csrf import CsrfProtect
+from flask_wtf.csrf import CSRFProtect
 
-csrf = CsrfProtect(app)
+csrf = CSRFProtect(app)
 
 # Database
 from flask_sqlalchemy import SQLAlchemy

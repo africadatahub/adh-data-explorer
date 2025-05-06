@@ -273,7 +273,7 @@ def api_explore(check):
     minVal = min(map(float, list(df.value.unique())))
     maxVal = max(map(float, list(df.value.unique()))) * 1.1
 
-    head = ['City', 'Year']
+    head = ['Country', 'Year']
     for i in datasets:
         head.append(str(i))
     table.append(head)
@@ -283,11 +283,11 @@ def api_explore(check):
     if plot_type == 1:
         df_i = filtered_df.iloc[:, [0, 1, 3]]
 
-        schema = [('City', 'string'), ('Year', 'string'), ('%s' % datasets[0], 'number')]
+        schema = [('Country', 'string'), ('Year', 'string'), ('%s' % datasets[0], 'number')]
 
         data_table = gviz_api.DataTable(schema)
         data_table.LoadData(df_i.values)
-        table_plot = data_table.ToJSon(columns_order=('City', '%s' % datasets[0], 'Year'))
+        table_plot = data_table.ToJSon(columns_order=('Country', '%s' % datasets[0], 'Year'))
 
         for c in cities:
             for y in years:

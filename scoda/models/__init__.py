@@ -4,3 +4,4 @@ from .datasets import DataPoint, DataSet, Indicator, Region, WaziRegion, Type, T
 from .maps import Area, Ward, Grid
 from .codebook_models import *
 from .codebook_temp_table import CbTempIndicators
+from .findex_african_table import CoreFinancialInclusion

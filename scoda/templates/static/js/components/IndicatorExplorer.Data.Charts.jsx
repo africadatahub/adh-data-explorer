@@ -96,7 +96,6 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
                     var dataSet = resultSet.table;
 
-
                     var options = {};
 
                     let rows = [];
@@ -448,6 +447,117 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         }
                     });
 
+                    let regionPicker;
+
+                    // Check if regions data exists
+                    if (resultSet.regions && resultSet.regions.length > 0) {
+                        try {
+                            console.log('Creating region filter...');
+                            
+                            // Create data table to verify structure
+                            const dataTable = google.visualization.arrayToDataTable(resultSet.table);
+                            
+                            const regionColumnIndex = dataTable.getColumnIndex('Region');
+                            console.log('Region column index:', regionColumnIndex);
+
+                            if (regionColumnIndex >= 0) {
+                                // Get unique regions from the data (as fallback)
+                                const uniqueRegions = resultSet.regions
+                                
+                                console.log('Available regions:', uniqueRegions);
+
+                                const initialSelectedRegions =  uniqueRegions;
+                                
+                                regionPicker = new google.visualization.ControlWrapper({
+                                    'controlType': 'CategoryFilter',
+                                    'containerId': 'regionSelector',
+                                    'dataTable': dataTable,
+                                    'state': { 
+                                        'selectedValues': initialSelectedRegions
+                                    },
+                                    'options': {
+                                        'filterColumnLabel': 'Region',
+                                        'ui': {
+                                            'labelStacking': 'vertical',
+                                            'label': 'Region',
+                                            'allowMultiple': true,
+                                            'allowNone': false,
+                                            'allowTyping': false,
+                                            'cssOptions': {
+                                                'disabledCssClass': 'disabled-option',
+                                                'googleMenuCssClass': 'custom-dropdown-height'
+                                            },
+                                            'limit': 13,
+                                            'caption': `All regions (${uniqueRegions.length})`
+                                        }
+                                    }
+                                });
+                                
+                                // Show the region selector
+                                document.getElementById('regionSelector').style.display = 'inline-block';
+                                
+                                // Add event listener for region filter
+                                google.visualization.events.addListener(regionPicker, 'statechange', function () {
+                                    try {
+                                        const selectedRegions = regionPicker.getState().selectedValues;
+                                        console.log('Region selection changed:', selectedRegions);
+                                        
+                                        const currentDataTable = google.visualization.arrayToDataTable(resultSet.table);
+                                        const regionColIndex = currentDataTable.getColumnIndex('Region');
+                                        const filteredCities = [];
+                                        
+                                        if (selectedRegions && selectedRegions.length > 0) {
+                                            // Get unique cities from selected regions
+                                            const cityRegionMap = {};
+                                            
+                                            for (let i = 1; i < currentDataTable.getNumberOfRows(); i++) {
+                                                const city = currentDataTable.getValue(i, 0); // City column (index 0)
+                                                const region = currentDataTable.getValue(i, regionColIndex);
+                                                
+                                                if (region && selectedRegions.includes(region)) {
+                                                    cityRegionMap[city] = true;
+                                                }
+                                            }
+                                            
+                                            filteredCities.push(...Object.keys(cityRegionMap));
+                                            console.log('Filtered cities based on regions:', filteredCities);
+                                            
+                                            // Update city filter with filtered cities, respecting maxSelection
+                                            categoryPicker1.setState({
+                                                selectedValues: filteredCities.slice(0, maxSelection)
+                                            });
+                                            
+
+                                        } else {
+                                            // If no regions selected, show all cities (up to maxSelection)
+                                            console.log('No regions selected, showing all cities');
+                                            categoryPicker1.setState({
+                                                selectedValues: resultSet.cities.slice(0, maxSelection)
+                                            });
+                                            regionPicker.setOption('ui.caption', 'Choose regions...');
+                                        }
+                                        
+                                        categoryPicker1.draw();
+                                        regionPicker.draw(); // Redraw to update caption
+                                        
+                                    } catch (error) {
+                                        console.error('Error in region filter state change:', error);
+                                    }
+                                });
+                                
+                            } else {
+                                console.warn('Region column not found in data table');
+                                document.getElementById('regionSelector').style.display = 'none';
+                            }
+                        } catch (error) {
+                            console.error('Error creating region filter:', error);
+                            document.getElementById('regionSelector').style.display = 'none';
+                        }
+                    } else {
+                        console.log('No regions data available');
+                        document.getElementById('regionSelector').style.display = 'none';
+                    }
+
                     google.visualization.events.addListener(categoryPicker1, 'statechange', function () {
                         const selectedValues = categoryPicker1.getState().selectedValues;
 
@@ -527,10 +637,17 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                     let dashboard = new google.visualization.Dashboard();
 
                     if (resultSet.plot_type === 2) {
-                        dashboard.bind([categoryPicker1, categoryPicker2], [bar, table]);
+                        const controls = [];
+
+                        if ( regionPicker && document.getElementById("regionSelector").style.display !== "none") {
+                            regionPicker.setDataTable(data);
+                            controls.push(regionPicker);
+                        }
+
+                        controls.push(categoryPicker1, categoryPicker2);
+                        dashboard.bind(controls, [bar, table]);
                         dashboard.draw(data);
-                    }
-                    else {
+                    } else {
                         categoryPicker2.setDataTable(data);
                         categoryPicker2.draw();
 
@@ -547,10 +664,58 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         });
 
 
-                        data = new google.visualization.DataTable(resultSet.table_plot);
-                        dashboard.bind([categoryPicker1], [table]);
+                        const plotData = new google.visualization.DataTable(resultSet.table_plot);
+                        table.setDataTable(plotData);
 
-                        dashboard.draw(data);
+                        // For plot_type 1, don't bind region filter to dashboard
+                        // Instead, handle region filtering through event listeners only
+                        dashboard.bind([categoryPicker1], [table]);
+                        dashboard.draw(plotData);
+
+                        // If region filter exists, handle it through manual filtering
+                        if (
+                            regionPicker &&
+                            document.getElementById("regionSelector").style.display !== "none"
+                        ) {
+                            // Draw region filter separately (not bound to dashboard)
+                            regionPicker.setDataTable(data);
+                            regionPicker.draw();
+
+                            // Add manual region filtering logic
+                            google.visualization.events.addListener(
+                            regionPicker,
+                            "statechange",
+                            function () {
+                                const selectedRegions = regionPicker.getState().selectedValues;
+
+                                // Filter cities based on regions and update categoryPicker1
+                                const currentDataTable = google.visualization.arrayToDataTable(
+                                resultSet.table
+                                );
+                                const regionColIndex = currentDataTable.getColumnIndex("Region");
+                                const filteredCities = [];
+
+                                if (selectedRegions && selectedRegions.length > 0) {
+                                const cityRegionMap = {};
+                                for (let i = 1; i < currentDataTable.getNumberOfRows(); i++) {
+                                    const city = currentDataTable.getValue(i, 0);
+                                    const region = currentDataTable.getValue(i, regionColIndex);
+                                    if (region && selectedRegions.includes(region)) {
+                                    cityRegionMap[city] = true;
+                                    }
+                                }
+                                filteredCities.push(...Object.keys(cityRegionMap));
+                                } else {
+                                filteredCities.push(...resultSet.cities);
+                                }
+
+                                categoryPicker1.setState({
+                                selectedValues: filteredCities.slice(0, maxSelection),
+                                });
+                                categoryPicker1.draw();
+                            }
+                            );
+                        }
                     }
 
                     if (resultSet.table[0][2].length > 66) {

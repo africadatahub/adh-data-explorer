@@ -215,7 +215,7 @@ def api_findex_data(check):
     years = sorted(filtered_df['year'].dropna().unique())
     cities = sorted(filtered_df['re_name'].unique())
     datasets = sorted(filtered_df['ds_name'].unique())
-    regions = sorted(filtered_df['african_regions'].dropna().unique())  # New line here ---
+    regions = sorted(filtered_df['african_regions'].dropna().unique())
 
 
     options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
@@ -276,11 +276,11 @@ def api_findex_data(check):
 
     # --- 12. Compute yearly averages per dataset --- 
     pivot_df = filtered_df.pivot_table(
-        index='year', columns='ds_name', values='value', aggfunc='mean'  # New line here ---
-    ).reset_index()  # New line here ---
+        index='year', columns='ds_name', values='value', aggfunc='mean'
+    ).reset_index()
 
-    yearly_averages = {  # New line here ---
-        str(int(row['year'])): {dataset: row[dataset] for dataset in datasets}  # New line here ---
+    yearly_averages = {
+        str(int(row['year'])): {dataset: row[dataset] for dataset in datasets}
         for _, row in pivot_df.iterrows()
     } 
 
@@ -300,8 +300,8 @@ def api_findex_data(check):
         "options_list": options_list,
         "years_list": years_list,
         "years": ['Year'] + [str(y) for y in years[::-1]],
-        "regions": regions,  # New line here ---
-        "averages": yearly_averages  # New line here ---
+        "regions": regions,
+        "averages": yearly_averages
     }
 
     return jsonify(payload)
@@ -348,48 +348,6 @@ def fetch_data_from_db(indicator_id):
 def store_data_in_cache(indicator_id, data):
     # Store the data in the cache
     redisClient.setex(f'indicator_{indicator_id}', 3600, json.dumps(data))  # Cache for 1 hour
-
-
-
-#//////////////////////////////////////////////////////////
-#////////////////...........................................................
-#.............................................................................................................................
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @app.route('/api/explore/', defaults={'check': ''})

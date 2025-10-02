@@ -1,146 +1,144 @@
-import React, { Component } from 'react';
+import React, { Component } from "react";
 
-import $, { data } from 'jquery';
-import {Canvg} from 'canvg';
+import $, { data } from "jquery";
+import { Canvg } from "canvg";
 
-import IndicatorExplorerDataChart from '../components/IndicatorExplorer.Data.Charts';
-import IndicatorExplorerDataTable from '../components/IndicatorExplorer.Data.Table';
-import IndicatorExplorerDataMap from '../components/IndicatorExplorer.Data.Maps';
+import IndicatorExplorerDataChart from "../components/IndicatorExplorer.Data.Charts";
+import IndicatorExplorerDataTable from "../components/IndicatorExplorer.Data.Table";
+import IndicatorExplorerDataMap from "../components/IndicatorExplorer.Data.Maps";
 
 export default class IndicatorExplorerDataBox extends Component {
-    constructor(props) {
-        super(props);
+  constructor(props) {
+    super(props);
 
-        this.state = {
-            csv:[]
-        }
+    this.state = {
+      csv: [],
+    };
+  }
+
+  componentDidMount() {
+    if (this.props.results.length > 0) {
+      this.loadGoogleVizApi(this.props.results, this.props.filterYear);
     }
+  }
 
-    componentDidMount() {
-        if(this.props.results.length > 0) {
-            this.loadGoogleVizApi(this.props.results,this.props.filterYear);
-        }
+  componentDidUpdate() {
+    if (this.props.results.length !== 0) {
+      this.loadGoogleVizApi(this.props.results, this.props.filterYear);
     }
+  }
 
-    componentDidUpdate() {
-        if(this.props.results.length !== 0) {
-            this.loadGoogleVizApi(this.props.results,this.props.filterYear);
-        }
+  loadGoogleVizApi(dataSet, selectedYear) {
+    var options = {
+      dataType: "script",
+      cache: true,
+      url: "https://www.google.com/jsapi",
+    };
+
+    $.ajax(options).done(function () {
+      google.load("visualization", "1", {
+        packages: ["controls", "bar", "corechart", "geochart"],
+        callback: function () {
+          var data = new google.visualization.DataTable();
+
+          dataSet = dataSet.table;
+
+          let rows = [];
+          let rowHeader = [];
+          for (let i = 0; i <= dataSet[0].length - 1; i++) {
+            rowHeader.push(dataSet[0][i]);
+          }
+
+          rows.push(rowHeader);
+
+          for (let j = 1; j <= dataSet.length - 1; j++) {
+            let rowItem = dataSet[j];
+            let row = [];
+            if (rowItem[1].toString() === selectedYear) {
+              for (let k = 0; k < rowItem.length; k++) {
+                row.push(rowItem[k].toString());
+              }
+              rows.push(row);
+            }
+          }
+
+          var data = new google.visualization.DataTable(
+            document.getElementById("table")
+          );
+          var csvData = google.visualization.dataTableToCsv(data);
+
+        },
+      });
+    });
+  }
+
+  renderDataSet(dataSetType, filter) {
+    switch (dataSetType) {
+      case "table":
+        return (
+          <IndicatorExplorerDataTable
+            results={this.props.results}
+            key={dataSetType}
+            filterYear={this.props.filterYear}
+          />
+        );
+        break;
+      case "chart":
+        return (
+          <IndicatorExplorerDataChart
+            data={this.props.results}
+            key={dataSetType}
+            filterYear={this.props.filterYear}
+            onSelectionChange={this.props.onSelectionChange}
+            maxSelection={this.props.maxSelection}
+            selectedCountries={this.props.selectedCountries}
+            onSelectionFilters={this.props.onSelectionFilters}
+            selectedFilters={this.props.selectedFilters}
+          />
+        );
+        break;
+      case "map":
+        return (
+          <IndicatorExplorerDataMap
+            geo={this.props.results}
+            key={dataSetType}
+            filterYear={this.props.filterYear}
+            filter={filter}
+          />
+        );
+        break;
     }
+  }
 
-    loadGoogleVizApi(dataSet,selectedYear) {
-        var options = {
-            dataType: "script",
-            cache: true,
-            url: "https://www.google.com/jsapi",
-          };
-
-          $.ajax(options).done(function(){
-            google.load("visualization", "1", {
-              packages:['controls', 'bar', 'corechart', 'geochart'],
-              callback: function() {
-                    var data = new google.visualization.DataTable();
-
-                    dataSet = dataSet.table;
-
-                    let rows = [];
-                    let rowHeader = [];
-                    for(let i=0;i<=dataSet[0].length-1;i++) {
-                        rowHeader.push(dataSet[0][i]);
-                    }
-
-                    rows.push(rowHeader);
-
-                    for(let j=1;j<=dataSet.length-1;j++) {
-                        let rowItem = dataSet[j];
-                        let row = [];
-                        if(rowItem[1].toString() === selectedYear) {
-                        for(let k=0;k<rowItem.length;k++) {
-                        row.push(rowItem[k].toString());
-                        }
-                        rows.push(row);
-                      }
-                    }
-
-                    //var data = new google.visualization.arrayToDataTable(rows);
-
-                    var data = new google.visualization.DataTable(document.getElementById('table'));
-                    var csvData = google.visualization.dataTableToCsv(data);
-
-                    //var meta = 'Definition:' + ',{{ indicator.definition }}' + '\n' + 'Unit:' + ',{{ indicator.unit }}' + '\n'  +'Frequency:' + ',{{ indicator.frequency }}' + '\n' + 'Theme:' + ',{{ indicator.theme }}' + '\n' + 'Sub-theme:' + ',{{ indicator.sub_theme }}' + '\n' + 'Source' + ',{{ indicator.source }}' + '\n';
-
-                    //var csvString = rowHeader.join(',') + '\n' + csvData + '\n';
-
-                    //document.getElementById('csv').value=csvString;
-                }
-            });
-        });
+  download(downloadType, filename) {
+    switch (downloadType) {
+      case "table":
+        this.downloadTable(filename);
+        break;
+      case "chart":
+        this.downloadChart(filename);
+        break;
+      // Handle other cases ('table', 'map', etc.)
+      default:
+        console.error("Unsupported download type:", downloadType);
     }
+  }
 
-    renderDataSet(dataSetType,filter) {
-
-      switch(dataSetType) {
-            case "table" :
-                    return <IndicatorExplorerDataTable
-                             results={this.props.results}
-                             key={dataSetType}
-                             filterYear={this.props.filterYear}
-                            />
-                break;
-            case "chart":
-              return <IndicatorExplorerDataChart
-                        data={this.props.results}
-                        key={dataSetType}
-                        filterYear={this.props.filterYear}
-                        onSelectionChange={this.props.onSelectionChange}
-                        maxSelection={this.props.maxSelection}
-                        selectedCountries={this.props.selectedCountries}
-                        onSelectionFilters={this.props.onSelectionFilters}
-                        selectedFilters={this.props.selectedFilters}
-                    />
-            break;
-            case "map":
-                return <IndicatorExplorerDataMap
-                        geo={this.props.results}
-                        key={dataSetType}
-                        filterYear={this.props.filterYear}
-                        filter={filter}
-                        />
-             break;
-        }
-    }
-
-    download(downloadType, filename) {
-        switch(downloadType) {
-            case "table":
-                this.downloadTable(filename);
-            break;
-            case "chart":
-                this.downloadChart(filename);
-            break;
-					// Handle other cases ('table', 'map', etc.)
-					default:
-						console.error('Unsupported download type:', downloadType);
-		}
-
-    }
-
-  downloadData(uri,filename) {
-        let link = document.createElement("a");
-        link.download = filename;
-        link.href = uri;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click(function(e) {
-            e.preventDefault();
-            document.body.removeChild(link);
-        });
-
-    }
+  downloadData(uri, filename) {
+    let link = document.createElement("a");
+    link.download = filename;
+    link.href = uri;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click(function (e) {
+      e.preventDefault();
+      document.body.removeChild(link);
+    });
+  }
 
   downloadTable(filename) {
     // Try fetching the existing table reference
-    const tableElement = document.getElementById('tableD'); // Assuming the table is rendered in the DOM
+    const tableElement = document.getElementById("tableD"); // Assuming the table is rendered in the DOM
 
     if (tableElement) {
       // CSV Work: Parse HTML Table to CSV data
@@ -174,93 +172,109 @@ export default class IndicatorExplorerDataBox extends Component {
     }
   }
 
-  downloadChart(filename) {
-    // Try fetching the existing PNG reference
-    let dataUri = document.getElementById('chartPng')?.value;
-    if (dataUri) {
-      // Download the data directly
-      this.downloadData(dataUri, filename);
-    } else {
-      // Fetch the SVG element
-      const svgElement = document.getElementById('chart').getElementsByTagName('svg')[0];
+  downloadChart(filename, format = "png") {
+    const svgElement = document
+      .getElementById("chart")
+      ?.getElementsByTagName("svg")[0];
 
-      if (svgElement) {
-        // Serialize the SVG content to a string
-        const serializer = new XMLSerializer();
-        const svgString = serializer.serializeToString(svgElement);
+    if (!svgElement) {
+      console.error("SVG element not found. Cannot download chart.");
+      return;
+    }
 
-        // Optional: Adjust SVG to include margins
-        const parser = new DOMParser();
-        const parsedSvg = parser.parseFromString(svgString, "image/svg+xml");
-        const svgNode = parsedSvg.documentElement;
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svgElement);
 
-        const originalWidth = parseFloat(svgElement.getAttribute("width") || svgElement.style.width || 500); // Defaults to 500 if missing
-        const originalHeight = parseFloat(svgElement.getAttribute("height") || svgElement.style.height || 300); // Defaults to 300 if missing
-        const margin = 20; // Margin in pixels
+    if (format === "svg") {
+      // --- Download SVG directly ---
+      const blob = new Blob([svgString], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const blobUrl = URL.createObjectURL(blob);
 
-        // Update SVG viewBox for margins (ensuring no titles/axes are cut off)
-        if (!svgNode.getAttribute("viewBox")) {
-          svgNode.setAttribute("viewBox", `0 0 ${originalWidth} ${originalHeight}`);
-        }
+      const dlLink = document.createElement("a");
+      dlLink.download = `${filename}.svg`;
+      dlLink.href = blobUrl;
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
 
-        const viewBox = svgNode.getAttribute("viewBox").split(" ").map(Number);
-        svgNode.setAttribute(
-          "viewBox",
-          `${viewBox[0] - margin} ${viewBox[1] - margin} ${viewBox[2] + margin * 2} ${viewBox[3] + margin * 2}`
-        );
-        svgNode.setAttribute("width", originalWidth + margin * 2);
-        svgNode.setAttribute("height", originalHeight + margin * 2);
+      URL.revokeObjectURL(blobUrl);
+    } else if (format === "png") {
+      // --- Convert SVG to PNG via canvas ---
+      const canvas = document.createElement("canvas");
+      canvas.width = svgElement.clientWidth || 500;
+      canvas.height = svgElement.clientHeight || 300;
+      const ctx = canvas.getContext("2d");
 
-        // Serialize the updated SVG back to a string
-        const updatedSvgString = new XMLSerializer().serializeToString(svgNode);
+      const img = new Image();
+      const svgBlob = new Blob([svgString], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const url = URL.createObjectURL(svgBlob);
 
-        // Create a blob and download the SVG
-        const blob = new Blob([updatedSvgString], { type: "image/svg+xml;charset=utf-8" });
-        const blobUrl = URL.createObjectURL(blob);
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
 
-        const dlLink = document.createElement('a');
-        dlLink.download = `chart ${filename}.svg`; // Filename
-        dlLink.href = blobUrl;
-        document.body.appendChild(dlLink);
-        dlLink.click();
-        document.body.removeChild(dlLink);
+        canvas.toBlob((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          const dlLink = document.createElement("a");
+          dlLink.download = `${filename}.png`;
+          dlLink.href = blobUrl;
+          document.body.appendChild(dlLink);
+          dlLink.click();
+          document.body.removeChild(dlLink);
+          URL.revokeObjectURL(blobUrl);
+        }, "image/png");
+      };
 
-        // Clean up the blob URL to release memory
-        URL.revokeObjectURL(blobUrl);
-      } else {
-        console.error("SVG element not found. Cannot download chart.");
-      }
+      img.src = url;
     }
   }
 
   render() {
-        let downloadEvent = '';
-        if(this.props.resultType !== 'map') {
-          downloadEvent = <div className="ie-button-download" style={{width:'133px'}} onClick={()=>this.download(this.props.resultType, this.props.results.options_list[0].optname)}>{this.props.resultType === 'chart' ? 'Download as PNG':'Download as CSV' } </div>;
-        }
+    let downloadEvent = "";
 
-        return (
-            <div id="dashboard" style={{width:'100%'}}>
-                <div id="card" className="ie-box-card">
-                    <div className="ie-box-card-header">
-                        <div className="row">
-                            <div className="col ml-3">
-                                {this.props.resultTitle}
-                            </div>
-                            <div className="col-0 mt-2 mr-4 float-right">
-                                {downloadEvent}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="col ie-table">
-                        <div className="mt-2 ml-3 mb-4">
-                            {this.renderDataSet(this.props.resultType,this.props.filter)}
-                        </div>
-                        {/*<input type="hidden" id="csv"></input>*/}
-                        <canvas style={{display:'none'}}></canvas>
-                    </div>
-                </div>
-            </div>
-        )
+    if (this.props.resultType !== "map") {
+      downloadEvent = (
+        <div
+          className="ie-button-download"
+          style={{ width: "133px" }}
+          onClick={() =>
+            this.props.resultType === "chart"
+              ? this.downloadChart(
+                  this.props.results.options_list[0].optname,
+                  "png"
+                )
+              : this.downloadTable(this.props.results.options_list[0].optname)
+          }
+        >
+          {this.props.resultType === "chart"
+            ? "Download as PNG"
+            : "Download as CSV"}
+        </div>
+      );
     }
+
+    return (
+      <div id="dashboard" style={{ width: "100%" }}>
+        <div id="card" className="ie-box-card">
+          <div className="ie-box-card-header">
+            <div className="row">
+              <div className="col ml-3">{this.props.resultTitle}</div>
+              <div className="col-0 mt-2 mr-4 float-right">{downloadEvent}</div>
+            </div>
+          </div>
+          <div className="col ie-table">
+            <div className="mt-2 ml-3 mb-4">
+              {this.renderDataSet(this.props.resultType, this.props.filter)}
+            </div>
+            {/*<input type="hidden" id="csv"></input>*/}
+            <canvas style={{ display: "none" }}></canvas>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

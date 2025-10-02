@@ -1,19 +1,24 @@
-from scoda.app import app,redisClient
+import math
+import json
+import itertools
+import gviz_api
+
 from flask import request, url_for, redirect, flash, make_response, session, render_template, jsonify, Response
 from flask_security import current_user
 from itertools import product, zip_longest
 from datetime import datetime, timedelta
+from pandas import read_sql_query
+import pandas as pd
+from sqlalchemy_searchable import search
+
+from .app import csrf, redisClient
+from scoda.app import app,redisClient
+from scoda.models.findex_african_table import CoreFinancialInclusion
+from scoda.models.findex_african_table import CoreFinancialInclusion, FindexIndicator
 from .models import *
 from .models.user import UserAnalysis
 from .models.datasets import ExploreForm
-from pandas import read_sql_query
-import pandas as pd
-import gviz_api
-import json
-import itertools
-from .app import csrf, redisClient
 
-from sqlalchemy_searchable import search
 
 def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
@@ -40,6 +45,16 @@ def api_indicators_list(check):
     else:
         indicators_list = [[str(c.id), c.in_name] for c in Indicator.all() if c.in_name not in remove_list]
     return jsonify(indicators_list)
+
+
+@app.route("/api/findex/indicators-list/codebook", methods=["GET"])
+def api_findex_codebook():
+    indicators_list = [
+        [str(c.id), c.indicator_name.capitalize()]
+        for c in FindexIndicator.query.all()
+    ]
+    return jsonify(indicators_list)
+
 
 
 @app.route('/api/explore_new', methods=['GET', 'POST'])
@@ -108,6 +123,189 @@ def indicator_stats():
                                                       temp_indicator_check=
                                                       True if request.args.getlist('temp_indicator') else False)
     return jsonify({"message": "No filters selected"}), 404
+
+# -------------------- FINDEX CACHE HELPERS --------------------
+
+def get_findex_data_from_cache(indicator_id: int):
+    key = f'findex:core_financial_inclusion:indicator_{indicator_id}'
+    cached_data = redisClient.get(key)
+    return json.loads(cached_data) if cached_data else None
+
+def store_findex_data_in_cache(indicator_id: int, data):
+    key = f'findex:core_financial_inclusion:indicator_{indicator_id}'
+    redisClient.setex(key, 3600, json.dumps(data))
+
+# -------------------- FINDEX DB HELPER --------------------
+
+def fetch_findex_data_from_db(indicator_id: int):
+    """Query CoreFinancialInclusion data and return as list of dicts"""
+    query_result = (
+        db.session.query(
+            CoreFinancialInclusion.countrynewwb,
+            CoreFinancialInclusion.year,
+            CoreFinancialInclusion.indicator_name,
+            CoreFinancialInclusion.africanunion_region,
+            CoreFinancialInclusion.value
+        )
+        .filter(CoreFinancialInclusion.indicator_id == indicator_id)
+        .all()
+    )
+
+    return [
+        {
+            're_name': row.countrynewwb,
+            'start_dt': row.year,
+            'ds_name': row.indicator_name,
+            'value': float(row.value) if row.value is not None else None,
+            'african_regions': row.africanunion_region
+        }
+        for row in query_result
+    ]
+
+
+# -------------------- FINDEX API ROUTE --------------------
+
+@app.route('/api/findex/', defaults={'check': ''})
+@app.route('/api/findex/<check>', methods=['GET', 'POST'])
+def api_findex_data(check):
+    # --- 1. Get indicator ID ---
+    indicator_id = request.args.get('indicator_id', 76, type=int)
+
+    # --- 2. Try cache first ---
+    data = get_findex_data_from_cache(indicator_id)
+
+    if data is None:
+        data = fetch_findex_data_from_db(indicator_id)
+        store_findex_data_in_cache(indicator_id, data)
+    
+    if not data:
+        return jsonify({})  # No data at all
+
+    # --- 3. Convert to DataFrame ---
+    df = pd.DataFrame(data)
+    if df.empty:
+        return jsonify({})
+
+    df = df.rename(columns={'name': 're_name', 'name.1': 'ds_name'})
+
+    # Derive "year" column
+    if 'start_dt' in df.columns and df['start_dt'].notnull().any():
+        df['year'] = df['start_dt']
+    elif 'end_dt' in df.columns and df['end_dt'].notnull().any():
+        df['year'] = df['end_dt']
+
+    df = df.drop_duplicates()
+
+    # --- 4. Filter only African countries ---
+    african_countries = [
+        'Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon',
+        'Central African Republic', 'Chad', 'Comoros', 'Democratic Republic of the Congo', 'Republic of the Congo',
+        "Cote d'Ivoire", 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Ethiopia', 'Gabon', 'Gambia',
+        'Ghana', 'Guinea', 'Guinea Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi',
+        'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda',
+        'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa',
+        'South Sudan', 'Sudan', 'Swaziland', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'
+    ]
+
+    filtered_df = df[df['re_name'].isin(african_countries)]
+    if filtered_df.empty:
+        return jsonify({})
+
+    # --- 5. Extract unique values ---
+    years = sorted(filtered_df['year'].dropna().unique())
+    cities = sorted(filtered_df['re_name'].unique())
+    datasets = sorted(filtered_df['ds_name'].unique())
+    regions = sorted(filtered_df['african_regions'].dropna().unique())
+
+
+    options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
+    years_list = [{'optid': i, 'optname': f'Year: {y}'} for i, y in enumerate(years, start=1)]
+
+    # --- 6. Decide plot type ---
+    plot_type = 2 if len(datasets) > 1 or len(years) == 1 else 1
+
+    # --- 7. Series & colour setup ---
+    colours = [
+        '#f44336', '#03a9f4', '#4caf50', '#ffc107', '#ff5722', '#9c27b0',
+        '#8bc34a', '#ffeb3b', '#9e9e9e', '#3f51b5', '#e91e63'
+    ] * 2
+    series = {i: {'color': colours[i]} for i in range(len(datasets))}
+    view = [0] + list(range(2, len(datasets) + 2))
+
+    # --- 8. Build table headers (City, Year, Datasets..., Region) ---
+    table = [['City', 'Year'] + [str(ds) for ds in datasets] + ['Region']]
+
+    # --- 9. Fill table data ---
+    # In your Python API, fix the region appending:
+    for c in cities:
+        for y in years:
+            row = [str(c), str(y)]
+            for d in datasets:
+                datapoint = filtered_df.loc[
+                    (filtered_df["re_name"] == c) &
+                    (filtered_df["year"] == y) &
+                    (filtered_df["ds_name"] == d),
+                    "value"
+                ]
+                row.append(float(datapoint.iloc[0]) if not datapoint.empty else None)
+
+            # Append Region - handle null values properly
+            region_row = filtered_df.loc[
+                (filtered_df["re_name"] == c) &
+                (filtered_df["year"] == y),
+                "african_regions"
+            ]
+            region = region_row.iloc[0] if not region_row.empty and pd.notna(region_row.iloc[0]) else "None"
+            row.append(str(region))
+
+            table.append(row)
+
+
+    # --- 10. Optional Google DataTable (only if single dataset) ---
+    table_plot = []
+    if plot_type == 1 and datasets:
+        df_subset = filtered_df.iloc[:, [0, 1, 3]]
+        schema = [('City', 'string'), ('Year', 'string'), (datasets[0], 'number')]
+        data_table = gviz_api.DataTable(schema)
+        data_table.LoadData(df_subset.values)
+        table_plot = data_table.ToJSon(columns_order=('City', datasets[0], 'Year'))
+
+    # --- 11. Compute min/max ---
+    min_val = float(filtered_df['value'].min())
+    max_val = float(filtered_df['value'].max()) * 1.1
+
+    # --- 12. Compute yearly averages per dataset --- 
+    pivot_df = filtered_df.pivot_table(
+        index='year', columns='ds_name', values='value', aggfunc='mean'
+    ).reset_index()
+
+    yearly_averages = {
+        str(int(row['year'])): {dataset: row[dataset] for dataset in datasets}
+        for _, row in pivot_df.iterrows()
+    } 
+
+    # --- 12. Final payload ---
+    payload = {
+        "plot": 1,
+        "table": table,
+        "table_plot": table_plot,
+        "colours": colours,
+        "year": str(max(years)) if years else None,
+        "series": series,
+        "view": view,
+        "plot_type": plot_type,
+        "min": min_val,
+        "max": max_val,
+        "cities": cities,
+        "options_list": options_list,
+        "years_list": years_list,
+        "years": ['Year'] + [str(y) for y in years[::-1]],
+        "regions": regions,
+        "averages": yearly_averages
+    }
+
+    return jsonify(payload)
+
 
 
 def get_data_from_cache(indicator_id):

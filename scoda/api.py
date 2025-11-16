@@ -50,7 +50,11 @@ def api_indicators_list(check):
 @app.route("/api/findex/indicators-list/codebook", methods=["GET"])
 def api_findex_codebook():
     indicators_list = [
-        [str(c.id), c.indicator_name.capitalize()]
+        [
+            str(c.id),
+            c.indicator_name.capitalize(),
+            c.short_definition
+        ]
         for c in FindexIndicator.query.all()
     ]
     return jsonify(indicators_list)

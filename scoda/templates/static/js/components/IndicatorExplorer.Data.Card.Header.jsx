@@ -1,154 +1,49 @@
 import React, { Component } from "react";
-// import Select from './Select';
-import $ from "jquery";
-import select2 from "select2";
-import Select from "react-select";
-import "select2";
-import "select2/dist/css/select2.min.css";
+import Select, { components } from "react-select";
+
 import { Container, Row, Col, Modal, ModalBody, Spinner } from "reactstrap";
+
+import Tooltip from "./ui/ToolTip";
 
 export default class IndicatorExplorerDataCardHeader extends Component {
   constructor(props) {
     super(props);
+    
     this.state = {
       loader: true,
       selectedDataset: "World_Development_Indicators",
+      selectedOption: null,
     };
-    this.resetForm = this.resetForm.bind(this);
-    this.filterData = this.filterData.bind(this);
+
     this.handleDatasetChange = this.handleDatasetChange.bind(this);
+    this.handleIndicatorChange = this.handleIndicatorChange.bind(this);
+    this.filterData = this.filterData.bind(this); 
+  }
+
+  componentDidMount() {
+    setTimeout(() => this.setState({ loader: false }), 5000);
+    
+    // Initial data load hook
+    this.props.filterHook(1, this.state.selectedDataset);
   }
 
   handleDatasetChange(e) {
     const datasetName = e.target.value;
-    this.setState({ selectedDataset: datasetName }, () => {
+    
+    this.setState({ selectedDataset: datasetName, selectedOption: null }, () => {
       this.props.filterHook(1, datasetName);
+      if (this.props.onDatasetChange) this.props.onDatasetChange(datasetName);
     });
-
-    if (this.props.onDatasetChange) {
-      this.props.onDatasetChange(datasetName);
-    }
-
-    if ($("#indicator-selector").data("select2")) {
-      $("#indicator-selector").val(null).trigger("change");
-    }
   }
 
-  matchStart(params, data) {
-    // If there's no search term, return the data (match all options)
-    if (!params.term || $.trim(params.term) === "") {
-      return data;
-    }
-
-    // Check if it's a flat item (doesn't have children)
-    if (!data.children) {
-      // Match the text of the flat item with the search term
-      if (data.text.toUpperCase().startsWith(params.term.toUpperCase())) {
-        return data;
-      }
-      return null; // No match
-    }
-
-    // If it has children, filter them recursively
-    const filteredChildren = data.children.filter((child) =>
-      child.text.toUpperCase().startsWith(params.term.toUpperCase())
-    );
-
-    if (filteredChildren.length) {
-      return { ...data, children: filteredChildren }; // Return modified group with matched children
-    }
-
-    return null; // No match
-  }
-
-  componentDidMount() {
-    setTimeout(
-      function () {
-        this.setState({ loader: false });
-      }.bind(this),
-      5000
-    ); // wait 5 seconds, then reset to false
-
-    $("#indicator-selector").select2({
-      placeholder: "Please select or search an indicator",
-      allowClear: true,
-      minimumResultsForSearch: 0,
-      minimumInputLength: 0,
-      width: "100%",
-      matcher: this.matchStart,
-    });
-
-    $("#indicator-selector").on("select2:select", (e) => {
-      const selectedValue = $("#indicator-selector").val();
-      if (selectedValue) {
-        document
-          .getElementById("button-search")
-          .classList.remove("ie-button-inactive");
-        this.filterData();
-      } else {
-        document
-          .getElementById("button-search")
-          .classList.add("ie-button-inactive");
-      }
-    });
-
-    $("#indicator-selector").on("keypress", (e) => {
-      if (e.which === 13) {
-        this.filterData();
-      }
-    });
-
-    $("#indicator-selector").on("select2:open", () => {
-      setTimeout(() => {
-        $(".select2-search").css({
-          display: "block",
-          visibility: "visible",
-          opacity: 1,
-        });
-        $(".select2-search__field").css({
-          display: "block",
-          width: "100%",
-          height: "auto",
-        });
-      }, 100);
-    });
-    this.props.filterHook(1, this.state.selectedDataset);
-  }
-
-
-  componentDidUpdate(prevProps) {
-    if (prevProps.indicatorOptions !== this.props.indicatorOptions) {
-      // Destroy old instance
-      if ($("#indicator-selector").data("select2")) {
-        $("#indicator-selector").select2("destroy");
-      }
-
-      // Reinitialize with new indicatorOptions
-      $("#indicator-selector").select2({
-        placeholder: "Please select or search an indicator",
-        allowClear: true,
-        minimumInputLength: 0,
-        matcher: this.matchStart,
-      });
+  handleIndicatorChange(opt) {
+    this.setState({ selectedOption: opt });
+    
+    if (opt) {
+      this.props.filterHook(opt.value, this.state.selectedDataset);
     }
   }
-
-  componentWillUnmount() {
-    if ($("#indicator-selector").data("select2")) {
-      $("#indicator-selector").select2("destroy");
-    }
-  }
-
-  resetForm() {
-    $("#indicator-selector").select2("val", 0);
-
-    document
-      .getElementById("button-search")
-      .classList.add("ie-button-inactive");
-
-    this.props.toggle(false);
-  }
-
+  
   filterData() {
     let selectedIndex = document.getElementById("indicator-selector").value;
     console.log("Selected Indicator Value:", selectedIndex);
@@ -159,33 +54,33 @@ export default class IndicatorExplorerDataCardHeader extends Component {
   }
 
   render() {
-    const selectorOptions = this.props.indicatorOptions.map(
-      (indicator, index) => {
-        const [optionValue, optionLabel] = indicator;
-
-        return (
-          <option key={index} value={optionValue}>
-            {optionLabel}
-          </option>
-        );
-      }
+    // Data transformation for react-select options
+    const options = (this.props.indicatorOptions || []).map(
+      ([value, label, short_definition]) => ({
+        value,
+        label,
+        description: short_definition,
+      })
     );
+    
+    // Custom react-select Option component with Tooltip
+    const Option = (props) => {
+      const { data } = props;
 
-    //populate select option with the current indicator
-    const currentOptions = this.props.indicatorOptions.map(
-      (indicator, index) => {
-        let [optionValue, optionLabel] = indicator;
-
-        if (optionValue === this.props.indicator_id) {
-          return (
-            <option key={index} value={optionValue}>
-              {optionLabel}
-            </option>
-          );
-        }
-        return null;
+      if (!data.description) {
+        return <components.Option {...props} />;
       }
-    );
+
+      return (
+        <components.Option {...props}>
+          <Tooltip
+            title={data.label}
+            description={data.description}
+            trigger={<span>{data.label}</span>}
+          />
+        </components.Option>
+      );
+    };
 
     return (
       <div className="row">
@@ -266,6 +161,8 @@ export default class IndicatorExplorerDataCardHeader extends Component {
         ) : (
           ""
         )}
+        
+        {/* Selectors and Controls */}
         <div className="col-6">
           {/* Dataset Selector */}
           <div className="row">
@@ -273,37 +170,58 @@ export default class IndicatorExplorerDataCardHeader extends Component {
           </div>
           <div className="row">
             <div className="col">
-              <select
-                className="ie-dropdown mb-2"
-                value={this.state.selectedDataset}
-                onChange={this.handleDatasetChange}
-              >
-                <option value="World_Development_Indicators">
-                  World Development Indicators
-                </option>
-                <option value="Findex_Financial_Indicators">
-                  Findex Financial Indicators
-                </option>
-              </select>
+              <Select
+                placeholder="Select dataset..."
+                value={{
+                  value: this.state.selectedDataset,
+                  label:
+                    this.state.selectedDataset === "World_Development_Indicators"
+                      ? "World Development Indicators"
+                      : "Findex Financial Indicators",
+                }}
+                // Maps the react-select value back to the format expected by handleDatasetChange (e.target.value)
+                onChange={(opt) => this.handleDatasetChange({ target: { value: opt?.value } })}
+                options={[
+                  { value: "World_Development_Indicators", label: "World Development Indicators" },
+                  { value: "Findex_Financial_Indicators", label: "Findex Financial Indicators" },
+                ]}
+                isClearable={false}
+                styles={{
+                  container: (base) => ({ ...base, width: "100%" }),
+                  control: (base) => ({
+                    ...base,
+                    minHeight: "36px",
+                    borderColor: "#ccc",
+                    boxShadow: "none",
+                    "&:hover": { borderColor: "#aaa" },
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    zIndex: 9999,
+                  }),
+                }}
+              />
             </div>
           </div>
 
+          {/* Indicator Selector */}
           <div className="row">
             <div className="col ie-element-label">Choose Your Indicator:</div>
           </div>
           <div className="row">
             <div className="col">
-              <select id="indicator-selector" className="ie-dropdown mb-2">
-                {currentOptions.length ? (
-                  currentOptions
-                ) : (
-                  <option value="0">Empty</option>
-                )}
-                {selectorOptions}
-              </select>
+              <Select
+                options={options}
+                value={this.state.selectedOption}
+                onChange={this.handleIndicatorChange}
+                isClearable
+                placeholder="Please select or search an indicator"
+                components={{ Option }}
+              />
             </div>
           </div>
           <div className="ie-spacer"></div>
+          
           <div
             className="row"
             style={{ display: "flex", justifyContent: "space-between" }}
@@ -338,6 +256,7 @@ export default class IndicatorExplorerDataCardHeader extends Component {
             </div>
           </div>
         </div>
+
         <div className="col-6 explainer-text" style={{ marginLeft: 0 }}>
           <span
             style={{

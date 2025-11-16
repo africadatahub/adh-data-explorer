@@ -6,6 +6,8 @@ import { Canvg } from "canvg";
 import IndicatorExplorerDataChart from "../components/IndicatorExplorer.Data.Charts";
 import IndicatorExplorerDataTable from "../components/IndicatorExplorer.Data.Table";
 import IndicatorExplorerDataMap from "../components/IndicatorExplorer.Data.Maps";
+import Tooltip from "../components/ui/ToolTip.jsx";
+import InfoIcon from "./ui/infoIcon.jsx";
 
 export default class IndicatorExplorerDataBox extends Component {
   constructor(props) {
@@ -261,11 +263,48 @@ export default class IndicatorExplorerDataBox extends Component {
       <div id="dashboard" style={{ width: "100%" }}>
         <div id="card" className="ie-box-card">
           <div className="ie-box-card-header">
-            <div className="row">
-              <div className="col ml-3">{this.props.resultTitle}</div>
-              <div className="col-0 mt-2 mr-4 float-right">{downloadEvent}</div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  paddingRight: 12,
+                  paddingLeft: 12,
+                }}
+              >
+                <div
+                  style={{
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    fontWeight: 600,
+                  }}
+                  title={this.props.resultTitle}
+                >
+                  {this.props.resultTitle}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flex: "0 0 auto",
+                  }}
+                >
+                  { this.props.selectedIndicatorDefinition?.trim() && (
+                    <Tooltip
+                      title={this.props.resultTitle}
+                      description={this.props.selectedIndicatorDefinition}
+                      trigger={<InfoIcon />}
+                    />
+                  )}
+                  <div style={{ display: "inline-flex" }}>{downloadEvent}</div>
+                </div>
+              </div>
             </div>
-          </div>
           <div className="col ie-table">
             <div className="mt-2 ml-3 mb-4">
               {this.renderDataSet(this.props.resultType, this.props.filter)}

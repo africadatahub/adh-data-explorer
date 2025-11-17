@@ -13,6 +13,8 @@ class IndicatorExplorerDataCard extends Component {
 
     this.state = {
       indicators: [],
+      indicatorsMap: {}, // map for fast lookup
+      selectedIndicatorDefinition: "",
       dataset: [],
       table: [],
       selectedYear: props.selectedYear || "2010", // Use props for initial state
@@ -89,7 +91,13 @@ class IndicatorExplorerDataCard extends Component {
 
     if (datasetName === "Findex_Financial_Indicators") {
       axios.get("/api/findex/indicators-list/codebook").then((res) => {
-        this.setState({ indicators: res.data });
+        const indicatorsMap = Object.fromEntries(
+          res.data.map(item => [item[0], item])
+        );
+        this.setState({ 
+          indicators: res.data,
+          indicatorsMap
+        });
       });
     } else if (datasetName === "World_Development_Indicators") {
       axios.get("/api/indicators-list/codebook").then((res) => {
@@ -136,6 +144,10 @@ class IndicatorExplorerDataCard extends Component {
       });
 
       const data = this.cleanApiResponse(response.data);
+
+      if (datasetName === "Findex_Financial_Indicators" && this.state.indicatorsMap[indicatorId]) {
+        this.setState({ selectedIndicatorDefinition: this.state.indicatorsMap[indicatorId][2]});
+      }
 
       const selectedYear = this.resolveSelectedYear(data);
       const graphName = data?.table?.[0]?.[2] || "";
@@ -311,6 +323,7 @@ class IndicatorExplorerDataCard extends Component {
                   <div className="col-md-12 col-lg-9 col-xl-9 pr-0">
                     <IndicatorExplorerDataBox
                       resultTitle={`Plotting Window - ${this.state.graphName}`}
+                      selectedIndicatorDefinition={this.state.selectedIndicatorDefinition}
                       results={this.state.dataset}
                       resultType="chart"
                       filterYear={this.state.selectedYear}
@@ -326,6 +339,7 @@ class IndicatorExplorerDataCard extends Component {
                   <div className="col-md-12 col-lg-12 col-xl-12 p-0">
                     <IndicatorExplorerDataBox
                       resultTitle={`Selected Data - ${this.state.graphName}`}
+                      selectedIndicatorDefinition={this.state.selectedIndicatorDefinition}
                       results={this.state.dataset}
                       resultType="table"
                       filterYear={this.state.selectedYear}

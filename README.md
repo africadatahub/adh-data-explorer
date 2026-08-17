@@ -1,108 +1,297 @@
-# ADH Data Explorer - Flask
-SCODA Website Repository
+# ADH Data Explorer
 
-## Readme Contents
-- [Project Documentation Links](/README.md#project-documentation-links)
-- [Creative Resources](/README.md#creative-resources)
-- [Website Environments](/README.md#website-environments)
-- [Frontend Setup](/README.md#frontend-setup)
-- [Backend Setup](/README.md#backend-setup)
-- [Module List and Syntax](/README.md#module-list-and-syntax)
-- [Techinical Specs For QA](/README.md#technical-specs-for-qa)
-- [Caveats, Dev Notes and or Outstanding Bugs](/README.md#caveats-dev-notes-and-or-outstanding-bugs)
+Flask + React app for the [Africa Data Hub Data Explorer](https://explorer.africadatahub.org/home/#/).
 
-#### Information Resources
-- [Larger Data for DB seeds can be found here](https://drive.google.com/drive/folders/1tnI_EveGeeJg8-WnP5Js2doMDsQGT2Vh?usp=sharing)
+This repo was forked from SCODA. The Python package and some folders are still named `scoda`, but the **running app is Data Explorer only**: one home page and two indicator datasets. Unused SCODA modules may still sit on disk; they are not imported from `scoda/core.py`.
 
-## Creative Resources
-- [SCODA UI](https://www.figma.com/file/1Zslv9edwmlxZxTH7Q9dfm/SCODA-Platform-3_2?node-id=628%3A3942&t=BbVqdRcINId32XpW-1)
-- Needs Design Spec
+## Contents
 
+- [What the app serves](#what-the-app-serves)
+- [API reference](#api-reference)
+- [Tech stack](#tech-stack)
+- [Environments](#environments)
+- [How to run locally](#how-to-run-locally)
+- [Configuration and environment variables](#configuration-and-environment-variables)
+- [Data dependency](#data-dependency)
+- [Deployment platform](#deployment-platform)
+- [Infrastructure as code](#infrastructure-as-code)
+- [Caveats](#caveats)
 
-## Website Environments
-- [Staging Environment](https://scodastaging.opencitieslab.org/)
-- [Production Environment](http://scoda.co.za/)
+## What the app serves
 
-## Gulp Setup
-### Setting up Frontend Boiler Plate with Gulp and NPM
-#### The following dependencies are being used:
-- Util      - Log custom messages to the terminal
-- Sass      - CSS pre-processor
-- Uglify    - Minifies all JS files
-- Concat    - Concatenate any JS or CSS files in the styles or js directories
-- Connect   - Live Server Reload
+UI: `/` redirects to `/home/` (React `home` webpack bundle).
 
-_Before starting, make sure the gulpfile.js and package.json files are in the static/ directory._
-Then do the following:
-1. Make sure you have [node.js](https://nodejs.org/dist/v8.11.2/node-v8.11.2-x64.msi) installed on your local machine
-2. [NPM](https://www.npmjs.com/get-npm) should be installed with node already, press the following to check if it has and what version
-`npm -v`
-3. Now we want to install gulp globally
-`npm install --global gulp`
-4. Now install the dependencies in the package.json file
-`npm install`
-5. Now all your node plugins are installed, and all that's left is to run the gulp task manager by typing:
-`gulp`
+| Dataset | Indicator list | Explore data | Tables |
+| --- | --- | --- | --- |
+| World Development Indicators | `GET /api/indicators-list/codebook` | `GET /api/explore/codebook?indicator_id=` | `indicators`, `cb_temp_indicators` |
+| Findex | `GET /api/findex/indicators-list/codebook` | `GET /api/findex/codebook?indicator_id=` | `cb_findex_indicators`, `cb_core_financial_inclusion` |
 
-## Frontend Setup
-### Setting up with node >14 
-* cd to `scoda/templates/static/`
-* to install package required `npm install`
-* to run the app run `npm run watch`
+Explore responses are cached in Redis (1 hour). Redis is opened at app import with **RESP2** (`protocol=2`) so older Redis servers work. Implemented in [`scoda/api.py`](scoda/api.py).
 
-## Backend Setup
-### Setting up the Environment with Python 3.6.8+ and pip
-* clone the repo
-* install a virtual env and activate it: `virtualenv --no-site-packages env; source env/bin/activate`
-* install requirements: `pip install -r requirements.txt`
-* Locate config folder copy example.development.cfg and paste it as development.cfg into the same config folder
-* If needed update any local credentials on the new development.cfg file you've just created
+## API reference
 
-### Setting up the Database with PostgreSQL
-Setup the PostgreSQL database (version 12.13.*)
-Download and install postgis (version 3.1.1) locally from http://download.osgeo.org/postgis/windows/pg96/
-```
-psql -U postgres
-=# CREATE USER scoda WITH PASSWORD 'scoda';
-=# CREATE DATABASE scoda;
-=# GRANT ALL PRIVILEGES ON DATABASE scoda TO scoda;
-=# psql -d scoda -c "CREATE EXTENSION postgis;"
-=# psql -U postgres -d scoda -c "CREATE EXTENSION postgis;"
-=# psql -U postgres -d scoda -c "CREATE EXTENSION postgis_topology;"
-=# \q
-```
-Construct your db app-side:
-1. Request Access to the data and empty it's contents into the /scoda/data directory, extracting the contents out of the zipped files. No zipped files or empty folders should be in the scoda/data folder.
-2. Request access to the drive data folder if unable to download data.
-3. Activate your local environment
-```
-run 'python rebuild_db.py'
-```
-4. It will take some time to seed the data
-5. Once the seed has completed, start the server with the command:
-```
-python app.py runserver
+Base URL is the Flask origin (local `http://127.0.0.1:5000`, production `https://explorer.africadatahub.org`). All four routes return JSON. Explore endpoints also accept `POST` but read **query string** params only.
+
+Rows are filtered to African countries (`AFRICAN_COUNTRIES` in [`scoda/constants.py`](scoda/constants.py)). Empty result is `{}`.
+
+### `GET /api/indicators-list/codebook`
+
+WDI indicator catalogue from table `indicators`.
+
+**Response:** array of `[id, name]`
+
+```json
+[["1", "Employment to population ratio"], ["2", "Time spent on unpaid work"]]
 ```
 
-#### Deploying database changes
-* SCODA App uses Flask-Migrate (which uses Alembic) to handle database migrations.
-* To add a new model or make changes, update the SQLAlchemy definitions in `scoda/models/`. Then run
-`python app.py db migrate --message "a description of your change"`
-* This will autogenerate a change. Double check that it make sense. To apply it on your machine, run
-`python app.py db upgrade head`
+### `GET /api/explore/codebook`
 
-# Setup Redis for cache
+WDI time series from `cb_temp_indicators`. Cached as Redis key `indicator_{id}` for 3600s.
 
-1. [Insall Redis on local](https://redis.io/download/)
-2. Update the development.cfg REDIS_URL to your local configurations - Default is "redis://localhost:6379"
-3. Start the server with `redis-server`
+| Query | Default | Notes |
+| --- | --- | --- |
+| `indicator_id` | `76` | WDI indicator id |
+| `city` | all | Repeatable. Filters `re_name` (country name) |
 
-## Technical Specs for QA
+**Example:** `/api/explore/codebook?indicator_id=1&city=Kenya&city=Nigeria`
 
-#### Device and Browser Information
-V1.0 will be a mobile first web-app, designed purely for mobile but viewable by web.
-The following browsers and devices need to be 100% design match:
-- Latest 3 Chrome, IE, Edge, Firefox Desktop
-- Latest 2 Chrome, Edge, Safari Mobile
+**Response (chart payload):**
 
-## Caveats, Dev Notes and or Outstanding Bugs
+```json
+{
+  "plot": 1,
+  "table": [["City", "Year", "Indicator name"], ["Kenya", "2020", 55.2]],
+  "table_plot": "...google-viz json or []...",
+  "colours": ["#hex", "..."],
+  "year": "2020",
+  "series": { "0": { "color": "#hex" } },
+  "view": [0, 2],
+  "plot_type": 1,
+  "min": 0.0,
+  "max": 60.7,
+  "cities": ["Kenya"],
+  "options_list": [{ "optid": 1, "optname": "Indicator name" }],
+  "years_list": [{ "optid": 1, "optname": "Year: 2020" }],
+  "years": ["Year", "2020"]
+}
+```
+
+`plot_type` is `2` when there are multiple series or a single year.
+
+### `GET /api/findex/indicators-list/codebook`
+
+Findex catalogue from `cb_findex_indicators`.
+
+**Response:** array of `[id, name, short_definition]`
+
+```json
+[["1", "Account (% age 15+)", "The percentage of respondents who report having an account..."]]
+```
+
+### `GET /api/findex/codebook`
+
+Findex series from `cb_core_financial_inclusion`. Cached as `findex:core_financial_inclusion:indicator_{id}` for 3600s.
+
+| Query | Default | Notes |
+| --- | --- | --- |
+| `indicator_id` | `76` | Integer Findex indicator id |
+
+**Example:** `/api/findex/codebook?indicator_id=1`
+
+**Response:** same chart payload as WDI, plus:
+
+```json
+{
+  "regions": ["Eastern Africa", "Western Africa"],
+  "averages": { "2021": { "Account (% age 15+)": 42.1 } }
+}
+```
+
+`table` header includes a `Region` column (African Union region).
+
+## Tech stack
+
+| Layer | Details |
+| --- | --- |
+| Runtime | Python **3.10.9** (`runtime.txt`). **3.11** works on Windows. Prefer that over 3.12+ with this pin set. |
+| Web | Flask 2.0, gunicorn, WhiteNoise |
+| ORM | Flask-SQLAlchemy / SQLAlchemy 1.3 |
+| Cache | Redis |
+| Observability | Sentry |
+| Database | PostgreSQL. `rebuild_db.py` still imports leftover spatial models, so **PostGIS** is needed if you use `create_all`. |
+| Frontend | React 19, webpack 5, entry `home` in `scoda/templates/static/` |
+| Driver | `psycopg2-binary==2.9.9` |
+
+Entry points: `app.py` → `scoda.core` → `scoda.app` (config, DB, Redis, Sentry) plus `scoda.routes` and `scoda.api`.
+
+## Environments
+
+- Production: [https://explorer.africadatahub.org/home/#/](https://explorer.africadatahub.org/home/#/)
+- Staging: [https://staging-explorer.africadatahub.org/home/#/](https://staging-explorer.africadatahub.org/home/#/)
+
+Staging has historically had a **misconfigured database**. The explorer APIs require the four tables above to be populated. Production is the working reference.
+
+`FLASK_ENV` (default `development`) selects config:
+
+- `development` → `scoda/config/development.cfg`, or `scoda/config/example.development.cfg` if the file is missing or invalid Python
+- `production` → `scoda/config/production.cfg` (platform env vars)
+
+## How to run locally
+
+Windows PowerShell shown; macOS/Linux is the same with `source .venv/bin/activate`.
+
+### Prerequisites
+
+- Python 3.10 or 3.11
+- Node.js 18+
+- PostgreSQL 12+ (16–18 is fine). Enable PostGIS if you run `rebuild_db.py`
+- Redis (required at process start)
+
+### 1. Python env
+
+```powershell
+git clone <this-repo>
+cd adh-data-explorer
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+`pip install` can take several minutes because `xhtml2pdf` is unpinned.
+
+### 2. Environment file
+
+```powershell
+copy .env.example .env
+```
+
+You do not need `development.cfg` unless you want a machine-specific override (that file is gitignored). If an old `development.cfg` has a bare `SENTRY_DSN=` it is invalid Python and is skipped.
+
+### 3. PostgreSQL
+
+Defaults in `example.development.cfg`: user `scoda`, password `scoda`, database **`data-explorer`**.
+
+```sql
+CREATE USER scoda WITH PASSWORD 'scoda';
+CREATE DATABASE "data-explorer" OWNER scoda;
+GRANT ALL PRIVILEGES ON DATABASE "data-explorer" TO scoda;
+```
+
+```powershell
+psql -U postgres -d "data-explorer" -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+psql -U postgres -d "data-explorer" -c "CREATE EXTENSION IF NOT EXISTS postgis_topology;"
+```
+
+On Windows, `psql` is usually under `C:\Program Files\PostgreSQL\<version>\bin`.
+
+### 4. Redis
+
+Default: `redis://localhost:6379`. Start the Redis Windows service, Memurai, WSL `redis-server`, or `brew services start redis`.
+
+### 5. Seed data
+
+See [Data dependency](#data-dependency).
+
+### 6. Frontend
+
+```powershell
+cd scoda\templates\static
+npm install
+npm run watch
+```
+
+Bundles write to `scoda/static/public/`. Use `npm run build` for production assets.
+
+### 7. Flask
+
+From the repo root:
+
+```powershell
+python app.py
+```
+
+Gunicorn: `gunicorn app:app`.
+
+## Configuration and environment variables
+
+`python-dotenv` loads `.env` before `*.cfg`. Local example config reads `os.environ.get(...)` with defaults.
+
+| Variable | Local default | Production |
+| --- | --- | --- |
+| `FLASK_ENV` | `development` | `production` |
+| `SECRET_KEY` | `secret` | required |
+| `DATABASE_URL` | `postgres://scoda:scoda@localhost/data-explorer` | required |
+| `REDIS_URL` | `redis://localhost:6379` | required; `production.cfg` appends `?ssl_cert_reqs=none` |
+| `SENTRY_ENV` | `development` | required |
+| `SENTRY_SAMPLER` | `1` | required |
+| `SENTRY_DSN` | empty | required |
+
+SQLAlchemy **1.3** still accepts `postgres://`. Do not upgrade SQLAlchemy without switching to `postgresql://`.
+
+`production.cfg` still **requires** Flask-Mail variables (`MAIL_SERVER`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`) even though Data Explorer does not use mail locally. Set dummy values on the platform if needed.
+
+## Data dependency
+
+`scoda/data/` is **gitignored**. Request files from [this Google Drive folder](https://drive.google.com/drive/folders/1tnI_EveGeeJg8-WnP5Js2doMDsQGT2Vh) and unpack into `scoda/data/`.
+
+### World Development Indicators
+
+`rebuild_db.py` drops **all** tables, recreates them, and seeds WDI from:
+
+- `scoda/data/World_Bank_Gender_Stats_Employment_Time_Use.parquet`
+
+```powershell
+python rebuild_db.py
+```
+
+Destructive. It fills `indicators` and `cb_temp_indicators`.
+
+### Findex
+
+Does **not** drop the whole database. Run after WDI (or against an existing schema):
+
+```powershell
+python build_findex_tables.py
+```
+
+Needs:
+
+- `scoda/data/Africa_FindexDatabase2025_V2_Metadata.csv`
+- `scoda/data/Copy_Africa_FindexDatabase2025_Data_Africa.csv`
+
+### SQL dump (optional)
+
+If you have a full dump of the hosted explorer database, restore that instead of seeding:
+
+```powershell
+psql --dbname="data-explorer" --username=postgres --host=localhost --port=5432 -f path\to\dump.sql
+```
+
+## Deployment platform
+
+Heroku-compatible PaaS (no Docker/cloud config in git):
+
+- `Procfile`: `web: gunicorn app:app`
+- `runtime.txt`: `python-3.10.9`
+- `requirements.txt`
+
+Set `FLASK_ENV=production` and the production env vars above.
+
+## Infrastructure as code
+
+**None in this repository.** No Terraform, Docker Compose, Kubernetes, or GitHub Actions. Config is platform env vars plus `scoda/config/production.cfg`.
+
+Flask-Migrate/Alembic are listed in requirements but there is **no `migrations/` directory**. Schema comes from `create_all` / seed scripts / a dump.
+
+## Caveats
+
+- Redis must be running or the process will not import.
+- `ckanapi`, GeoAlchemy2, Flask-Mail, Gulp (`scoda/static/`), and leftover SCODA Python files are not part of the explorer runtime. Do not treat them as setup steps.
+- Empty `SENTRY_DSN` is fine locally (`SENTRY_DSN=` in `.env`; `SENTRY_DSN = ''` in a `.cfg` file).
+- Do not commit `.env` or `scoda/config/development.cfg`.
+
+### Local run notes (Windows, Aug 2026)
+
+- Use Python **3.11** if 3.10 is not installed (`psycopg2-binary==2.9.9` installs cleanly).
+- Redis Windows service on 6379 and PostgreSQL 18 were sufficient to boot `python app.py` at `http://127.0.0.1:5000/` (`/` → `/home/` HTTP 200).
+- Flask-WTF may warn that `CsrfProtect` was renamed to `CSRFProtect`.

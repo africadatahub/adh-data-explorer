@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import { Modal, ModalHeader, ModalBody, Spinner } from "reactstrap";
 
 import axios from "axios";
+import { DATASETS, DEFAULT_DATASET, getDatasetById } from "../constants/datasets";
 
 import IndicatorExplorerDataCardHeader from "../components/IndicatorExplorer.Data.Card.Header";
 import IndicatorExplorerDataBox from "../components/IndicatorExplorer.Data.Box";
@@ -45,7 +46,7 @@ class IndicatorExplorerDataCard extends Component {
 
   componentDidMount() {
     this.init();
-    this.fetchDatasetIndicators("World_Development_Indicators");
+    this.fetchDatasetIndicators(DEFAULT_DATASET.id);
     this.initFiltersFromURL();
   }
 
@@ -84,26 +85,21 @@ class IndicatorExplorerDataCard extends Component {
   }
 
   fetchDatasetIndicators(datasetName) {
-    if (!datasetName) {
-      this.setState({ indicatorOptions: [] });
+    const dataset = getDatasetById(datasetName);
+    if (!dataset) {
+      this.setState({ indicators: [], indicatorsMap: {} });
       return;
     }
 
-    if (datasetName === "Findex_Financial_Indicators") {
-      axios.get("/api/findex/indicators-list/codebook").then((res) => {
-        const indicatorsMap = Object.fromEntries(
-          res.data.map(item => [item[0], item])
-        );
-        this.setState({ 
-          indicators: res.data,
-          indicatorsMap
-        });
-      });
-    } else if (datasetName === "World_Development_Indicators") {
-      axios.get("/api/indicators-list/codebook").then((res) => {
-        this.setState({ indicators: res.data });
-      });
-    }
+    axios.get(dataset.indicatorsApi).then((res) => {
+      if (dataset.id === DATASETS.FINDEX.id) {
+        const indicatorsMap = Object.fromEntries(res.data.map((item) => [item[0], item]));
+        this.setState({ indicators: res.data, indicatorsMap });
+        return;
+      }
+
+      this.setState({ indicators: res.data, indicatorsMap: {} });
+    });
   }
 
   showLoader() {
@@ -115,7 +111,7 @@ class IndicatorExplorerDataCard extends Component {
   }
   async filterIndicatorData(
     indicatorValue,
-    datasetName = "World_Development_Indicators"
+    datasetName = DEFAULT_DATASET.id
   ) {
     this.showLoader();
 
@@ -134,10 +130,8 @@ class IndicatorExplorerDataCard extends Component {
     this.toggleComponentDisplay(false);
 
     try {
-      const url =
-        datasetName === "Findex_Financial_Indicators"
-          ? `/api/findex/codebook?indicator_id=${indicatorId}`
-          : `/api/explore/codebook?indicator_id=${indicatorId}`;
+      const dataset = getDatasetById(datasetName);
+      const url = `${dataset.exploreApi}?indicator_id=${indicatorId}`;
 
       const response = await axios.get(url, {
         headers: { Accept: "application/json" },
@@ -145,7 +139,7 @@ class IndicatorExplorerDataCard extends Component {
 
       const data = this.cleanApiResponse(response.data);
 
-      if (datasetName === "Findex_Financial_Indicators" && this.state.indicatorsMap[indicatorId]) {
+      if (dataset.id === DATASETS.FINDEX.id && this.state.indicatorsMap[indicatorId]) {
         this.setState({ selectedIndicatorDefinition: this.state.indicatorsMap[indicatorId][2]});
       }
 
@@ -158,7 +152,7 @@ class IndicatorExplorerDataCard extends Component {
         table: data.table || [],
         graphName,
         selectedYear,
-        selectedFilters: this.state.selectedFilters || [],
+        selectedFilters: (data.cities || []).slice(0, 10),
       });
 
       this.toggleComponentDisplay(true);
@@ -186,17 +180,9 @@ class IndicatorExplorerDataCard extends Component {
    * Resolve correct selectedYear based on plot_type and years_list
    */
   resolveSelectedYear(data) {
-    if (data.plot_type === 2) {
-      return data.year;
+    if (data && data.year != null && data.year !== "") {
+      return String(data.year);
     }
-
-    if (data.plot_type === 1 && Array.isArray(data.years_list)) {
-      const matchedYear = data.years_list.find(
-        (y) => y.optname.replace("Year:", "").trim() === data.year
-      );
-      return matchedYear?.optid || "2010";
-    }
-
     return "2010";
   }
 

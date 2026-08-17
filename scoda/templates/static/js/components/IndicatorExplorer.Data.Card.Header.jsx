@@ -3,6 +3,7 @@ import Select, { components } from "react-select";
 
 import { Container, Row, Col, Modal, ModalBody, Spinner } from "reactstrap";
 
+import { DATASET_OPTIONS, DEFAULT_DATASET } from "../constants/datasets";
 import Tooltip from "./ui/ToolTip";
 
 export default class IndicatorExplorerDataCardHeader extends Component {
@@ -11,7 +12,7 @@ export default class IndicatorExplorerDataCardHeader extends Component {
     
     this.state = {
       loader: true,
-      selectedDataset: "World_Development_Indicators",
+      selectedDataset: DEFAULT_DATASET.id,
       selectedOption: null,
     };
 
@@ -172,19 +173,9 @@ export default class IndicatorExplorerDataCardHeader extends Component {
             <div className="col">
               <Select
                 placeholder="Select dataset..."
-                value={{
-                  value: this.state.selectedDataset,
-                  label:
-                    this.state.selectedDataset === "World_Development_Indicators"
-                      ? "World Development Indicators"
-                      : "Findex Financial Indicators",
-                }}
-                // Maps the react-select value back to the format expected by handleDatasetChange (e.target.value)
+                value={DATASET_OPTIONS.find((option) => option.value === this.state.selectedDataset)}
                 onChange={(opt) => this.handleDatasetChange({ target: { value: opt?.value } })}
-                options={[
-                  { value: "World_Development_Indicators", label: "World Development Indicators" },
-                  { value: "Findex_Financial_Indicators", label: "Findex Financial Indicators" },
-                ]}
+                options={DATASET_OPTIONS}
                 isClearable={false}
                 styles={{
                   container: (base) => ({ ...base, width: "100%" }),

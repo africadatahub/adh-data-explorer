@@ -3,6 +3,7 @@ import '../../style/google-menu.css'
 
 import $ from 'jquery';
 import {Canvg} from 'canvg';
+import { loadGoogleCharts, parseGoogleDataTable } from '../utils/googleChartsLoader';
 
 export default class IndicatorExplorerDataChart extends PureComponent {
     constructor(props) {
@@ -13,27 +14,32 @@ export default class IndicatorExplorerDataChart extends PureComponent {
             containerHeight: '450px'
         }
 
+        this.chartRequestId = 0;
         this.handleResize = this.handleResize.bind(this);
+    }
+
+    hasChartData(data) {
+        return Boolean(data && Array.isArray(data.table) && data.table.length > 1);
     }
 
     componentDidMount() {
         window.addEventListener('resize', this.handleResize);
         this.handleResize();
 
-        if (this.props.data.length !== 0) {
+        if (this.hasChartData(this.props.data)) {
             this.loadGoogleVizApi(this.props.data, this.props.filterYear, '100%', '100%');
         }
 
     }
 
     componentDidUpdate(prevProps) {
-        window.addEventListener('resize', this.handleResize);
         this.handleResize();
 
         if (
-          JSON.stringify(this.props.data) !== JSON.stringify(prevProps.data) ||
-          this.props.filterYear !== prevProps.filterYear ||
-          (this.props.selectedFilters !== prevProps.selectedFilters && this.props.selectedFilters.length !== 0)
+          this.hasChartData(this.props.data) && (
+            JSON.stringify(this.props.data) !== JSON.stringify(prevProps.data) ||
+            this.props.filterYear !== prevProps.filterYear
+          )
         ) {
             this.loadGoogleVizApi(this.props.data, this.props.filterYear, '100%', '100%');
         }
@@ -49,14 +55,15 @@ export default class IndicatorExplorerDataChart extends PureComponent {
     handleResize() {
 
         var element = document.getElementById('chart');
+        if (!element) {
+            return;
+        }
         var positionInfo = element.getBoundingClientRect();
         var height = positionInfo.height;
         var width = positionInfo.width;
 
         var elementT = document.getElementById('tableD');
-        var positionInfoT = elementT.getBoundingClientRect();
-        var heightT = positionInfoT.height;
-        var widthT = positionInfoT.width;
+        var widthT = elementT ? elementT.getBoundingClientRect().width : width;
 
         let windowWidth = document.body.clientWidth;
         let windowHeight = document.body.clientHeight;
@@ -81,22 +88,22 @@ export default class IndicatorExplorerDataChart extends PureComponent {
 
     loadGoogleVizApi(resultSet, selectedYear, winWidth, winHeight) {
         const { maxSelection, onSelectionChange, onSelectionFilters, selectedFilters } = this.props;
+        const requestId = ++this.chartRequestId;
 
-        var options = {
-            dataType: "script",
-            cache: true,
-            url: "https://www.google.com/jsapi",
-        };
+        loadGoogleCharts().then((google) => {
+            if (requestId !== this.chartRequestId) {
+                return;
+            }
 
-        $.ajax(options).done(function () {
-            google.load("visualization", "1.1", {
-                packages: ['controls', 'bar', 'corechart', 'geochart', 'line'],
-                callback: function () {
                     document.getElementById('chartPng').value = '';
 
                     var dataSet = resultSet.table;
 
                     var options = {};
+
+                    const activeCountries = (selectedFilters && selectedFilters.length > 0)
+                        ? selectedFilters
+                        : (resultSet.cities || []).slice(0, 10);
 
                     let rows = [];
                     let rowHeader = [];
@@ -109,18 +116,12 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                     for (let j = 1; j < dataSet.length; j++) {
                         let rowItem = dataSet[j];
                         let row = [];
-                        if (rowItem[1].toString() === selectedYear) {
+                        if (String(rowItem[1]) === String(selectedYear)) {
                             for (let k = 0; k < rowItem.length; k++) {
                                 row.push(rowItem[k]);
                             }
                             rows.push(row);
                         }
-                    }
-
-                    if (onSelectionFilters) {
-                        onSelectionFilters({
-                            selectedFilters: selectedFilters.length > 0 ? selectedFilters : resultSet.cities.slice(0, 10),
-                        });
                     }
 
                     const getNextTickValue = (maxValue) => {
@@ -171,7 +172,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         let max = -Infinity; // Start with the smallest possible number
 
                         // Iterate over rows
-                        const data = resultSet.table.slice(1).filter((row) => selectedFilters.includes(row[0]));
+                        const data = resultSet.table.slice(1).filter((row) => activeCountries.includes(row[0]));
                         data.forEach((row) => {
                             // Check if row[2] is a valid number
                             if (row[2] !== undefined && !isNaN(row[2])) {
@@ -191,7 +192,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         let max = -Infinity; // Start with the smallest possible number
 
                         // Extract rows matching the filters
-                        const data = resultSet.table.slice(1).filter((row) => selectedFilters.includes(row[0]));
+                        const data = resultSet.table.slice(1).filter((row) => activeCountries.includes(row[0]));
 
                         // Calculate the max value from the valid rows
                         data.forEach((row) => {
@@ -648,9 +649,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         dashboard.bind(controls, [bar, table]);
                         dashboard.draw(data);
                     } else {
-                        categoryPicker2.setDataTable(data);
-                        categoryPicker2.draw();
-
+                        $('#categorySelector2').hide();
+                        $('#cat-spacer').hide();
 
                         table = new google.visualization.ChartWrapper({
                             'chartType': 'Table',
@@ -664,7 +664,12 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         });
 
 
-                        const plotData = new google.visualization.DataTable(resultSet.table_plot);
+                        const plotTableSource = parseGoogleDataTable(resultSet.table_plot);
+                        if (!plotTableSource) {
+                            console.error('Missing table_plot data for line chart');
+                            return;
+                        }
+                        const plotData = new google.visualization.DataTable(plotTableSource);
                         table.setDataTable(plotData);
 
                         // For plot_type 1, don't bind region filter to dashboard
@@ -718,7 +723,7 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                         }
                     }
 
-                    if (resultSet.table[0][2].length > 66) {
+                    if (resultSet.table[0][2] && resultSet.table[0][2].length > 66) {
                         google.visualization.events.addListener(bar, 'ready', () => {
                             const svg = document.querySelector('#chart svg');
                             if (svg) {
@@ -1185,8 +1190,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                                 let canvas = document.querySelector('canvas');
                                 let ctx = canvas.getContext('2d');
 
-                                if (svg) {
-                                    console.error("svg", svg);
+                                if (!svg) {
+                                    document.body.removeChild(tmpDiv);
                                     return;
                                 }
 
@@ -1233,8 +1238,8 @@ export default class IndicatorExplorerDataChart extends PureComponent {
                             return newTB;
                         }
                     });
-                }
-            });
+        }).catch((error) => {
+            console.error('Failed to load Google Charts:', error);
         });
     }
 

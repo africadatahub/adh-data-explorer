@@ -1,1029 +1,242 @@
-import math
 import json
-import itertools
+
 import gviz_api
-
-from flask import request, url_for, redirect, flash, make_response, session, render_template, jsonify, Response
-from flask_security import current_user
-from itertools import product, zip_longest
-from datetime import datetime, timedelta
-from pandas import read_sql_query
 import pandas as pd
-from sqlalchemy_searchable import search
+from flask import jsonify, request
 
-from .app import csrf, redisClient
-from scoda.app import app,redisClient
-from scoda.models.findex_african_table import CoreFinancialInclusion
+from scoda.app import app, db, redisClient
+from scoda.constants import AFRICAN_COUNTRIES, CHART_COLOURS
+from scoda.models.codebook_temp_table import CbTempIndicators
+from scoda.models.datasets import Indicator
 from scoda.models.findex_african_table import CoreFinancialInclusion, FindexIndicator
-from .models import *
-from .models.user import UserAnalysis
-from .models.datasets import ExploreForm
 
 
-def grouper(iterable, n, fillvalue=None):
-    "Collect data into fixed-length chunks or blocks"
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
-    return zip_longest(*args, fillvalue=fillvalue)
+def _build_explore_payload(filtered_df, include_regions=False, region_column='african_regions'):
+  years = sorted(filtered_df['year'].dropna().unique())
+  cities = sorted(filtered_df['re_name'].unique())
+  datasets = sorted(filtered_df['ds_name'].unique())
 
-@app.route('/api/indicators-list/', defaults={'check': ''})
-@app.route('/api/indicators-list/<check>', methods=['GET', 'POST'])
-def api_indicators_list(check):
-    remove_list = ['Poverty rate', 'Gini Coefficient', 'Gross Value Add', 'Exports', 'Multiple deprivation index',
-                   'Human Development Index']
-    if check == "codebook":
-        redis_key = "testing-indicators"
-        # if redisClient.exists(redis_key):
-        #     indicators_list = json.loads(redisClient.get(redis_key))
-        # else:
-            # indicators_list = [[str(c.id), c.ds_name] for c in
-            #                    CbTempIndicators.query.limit(5) if
-            #                    c.ds_name not in remove_list]
-        indicators_list = [[str(c.id), c.in_name] for c in
-                           Indicator.query.all()]
-            # redisClient.set(redis_key, json.dumps(indicators_list))
-    else:
-        indicators_list = [[str(c.id), c.in_name] for c in Indicator.all() if c.in_name not in remove_list]
-    return jsonify(indicators_list)
+  options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
+  years_list = [{'optid': i, 'optname': 'Year: %s' % y} for i, y in enumerate(years, start=1)]
+  plot_type = 2 if len(datasets) > 1 or len(years) == 1 else 1
 
+  series = {i: {'color': CHART_COLOURS[i]} for i in range(len(datasets))}
+  view = [0] + list(range(2, len(datasets) + 2))
 
-@app.route("/api/findex/indicators-list/codebook", methods=["GET"])
-def api_findex_codebook():
-    indicators_list = [
-        [
-            str(c.id),
-            c.indicator_name.capitalize(),
-            c.short_definition
+  head = ['City', 'Year'] + [str(dataset) for dataset in datasets]
+  if include_regions:
+    head.append('Region')
+  table = [head]
+
+  for city in cities:
+    for year in years:
+      row = [str(city), str(year)]
+      for dataset in datasets:
+        datapoint = filtered_df.loc[
+          (filtered_df['re_name'] == city)
+          & (filtered_df['year'] == year)
+          & (filtered_df['ds_name'] == dataset),
+          'value',
         ]
-        for c in FindexIndicator.query.all()
-    ]
-    return jsonify(indicators_list)
+        row.append(float(datapoint.iloc[0]) if not datapoint.empty else None)
 
+      if include_regions:
+        region_row = filtered_df.loc[
+          (filtered_df['re_name'] == city) & (filtered_df['year'] == year),
+          region_column,
+        ]
+        region = region_row.iloc[0] if not region_row.empty and pd.notna(region_row.iloc[0]) else 'None'
+        row.append(str(region))
 
+      table.append(row)
 
-@app.route('/api/explore_new', methods=['GET', 'POST'])
-def explore_new():
-    ind = request.args.get('indicator_id') or 76
-    city = request.args.get('city')
-    avg_filter = request.args.get('average')
-    year_filter = request.args.getlist('year')
-    query = db.session.query(CbRegion.name.label('re_name'), CbDataPoint.start_dt,
-                             CbIndicator.name.label('ds_name'), CbDataPoint.value,
-                             CbDataPoint.end_dt). \
-        filter(CbDataPoint.indicator_id == ind).filter(CbDataPoint.indicator_id == CbIndicator.id). \
-        filter(CbDataPoint.region_id == CbRegion.id)
-    if city:
-        query = query.filter(CbRegion.name == city)
-    if year_filter:
-        years_db = db.session.query(CbYear.id).filter(CbYear.name.in_([int(yr) for yr in year_filter]))
-        query = query.filter(CbDataPoint.year_start_id.in_([yr[0] for yr in years_db]))
-    df = read_sql_query(query.statement, query.session.bind)
+  table_plot = []
+  if plot_type == 1 and datasets:
+    df_subset = filtered_df.iloc[:, [0, 1, 3]]
+    schema = [('City', 'string'), ('Year', 'string'), ('%s' % datasets[0], 'number')]
+    data_table = gviz_api.DataTable(schema)
+    data_table.LoadData(df_subset.values)
+    table_plot = data_table.ToJSon(columns_order=('City', datasets[0], 'Year'))
 
-    df = df.rename(columns={'name': 're_name', 'name.1': 'ds_name'})
-    if not query.first():
-        # No data found
-        return jsonify({})
-    if df['start_dt'].iloc[0]:
-        df["year"] = df["start_dt"].apply(lambda x: int(x.strftime('%Y')))
-        df["start_dt"] = df["year"]
-    elif df['end_dt'].iloc[0]:
-        df["year"] = df["end_dt"].apply(lambda x: int(x.strftime('%Y')))
-        df["start_dt"] = df["year"]
-        del df["end_dt"]
-    df = df.drop_duplicates()
-    years, cities, datasets = [list(df.year.unique()), list(df.re_name.unique()), list(df.ds_name.unique())]
-    chart_data = []
-    for y in years:
-        labels = []
-        values = []
-        for c in cities:
-            labels.append(c)
-            for d in datasets:
-                datapoint = df.loc[(df["re_name"] == c) & (df["year"] == y) & (df["ds_name"] == d), "value"]
-                if len(datapoint) != 0:
-                    values.append(
-                        float(df.loc[(df["re_name"] == c) & (df["year"] == y) & (df["ds_name"] == d), "value"]) )
-        chart_data.append(
-            {
-                'labels' :labels,
-                'year': str(y),
-                'values':values
-            })
-    return jsonify(chart_data)
+  min_val = float(filtered_df['value'].min())
+  max_val = float(filtered_df['value'].max()) * 1.1
 
-@app.route('/api/stats', methods=['GET', 'POST'])
-def indicator_stats():
-    indicator_id = request.args.get('indicator_id')
-    codebook = True
-    if not indicator_id:
-        return jsonify({"message": "Please choose an indicator"}), 404
-    city = request.args.get('city')
-    avg_filter = request.args.get('average')
-    year_filter = request.args.getlist('year')
-    if avg_filter:
-        return IndicatorService().average_calculation(city=city,
-                                                      indicator_id=indicator_id,
-                                                      year_filter=year_filter,
-                                                      temp_indicator_check=
-                                                      True if request.args.getlist('temp_indicator') else False)
-    return jsonify({"message": "No filters selected"}), 404
+  payload = {
+    'plot': 1,
+    'table': table,
+    'table_plot': table_plot,
+    'colours': CHART_COLOURS,
+    'year': str(max(years)) if len(years) else None,
+    'series': series,
+    'view': view,
+    'plot_type': plot_type,
+    'min': min_val,
+    'max': max_val,
+    'cities': list(cities),
+    'options_list': options_list,
+    'years_list': years_list,
+    'years': ['Year'] + [str(year) for year in years[::-1]],
+  }
 
-# -------------------- FINDEX CACHE HELPERS --------------------
-
-def get_findex_data_from_cache(indicator_id: int):
-    key = f'findex:core_financial_inclusion:indicator_{indicator_id}'
-    cached_data = redisClient.get(key)
-    return json.loads(cached_data) if cached_data else None
-
-def store_findex_data_in_cache(indicator_id: int, data):
-    key = f'findex:core_financial_inclusion:indicator_{indicator_id}'
-    redisClient.setex(key, 3600, json.dumps(data))
-
-# -------------------- FINDEX DB HELPER --------------------
-
-def fetch_findex_data_from_db(indicator_id: int):
-    """Query CoreFinancialInclusion data and return as list of dicts"""
-    query_result = (
-        db.session.query(
-            CoreFinancialInclusion.countrynewwb,
-            CoreFinancialInclusion.year,
-            CoreFinancialInclusion.indicator_name,
-            CoreFinancialInclusion.africanunion_region,
-            CoreFinancialInclusion.value
-        )
-        .filter(CoreFinancialInclusion.indicator_id == indicator_id)
-        .all()
-    )
-
-    return [
-        {
-            're_name': row.countrynewwb,
-            'start_dt': row.year,
-            'ds_name': row.indicator_name,
-            'value': float(row.value) if row.value is not None else None,
-            'african_regions': row.africanunion_region
-        }
-        for row in query_result
-    ]
-
-
-# -------------------- FINDEX API ROUTE --------------------
-
-@app.route('/api/findex/', defaults={'check': ''})
-@app.route('/api/findex/<check>', methods=['GET', 'POST'])
-def api_findex_data(check):
-    # --- 1. Get indicator ID ---
-    indicator_id = request.args.get('indicator_id', 76, type=int)
-
-    # --- 2. Try cache first ---
-    data = get_findex_data_from_cache(indicator_id)
-
-    if data is None:
-        data = fetch_findex_data_from_db(indicator_id)
-        store_findex_data_in_cache(indicator_id, data)
-    
-    if not data:
-        return jsonify({})  # No data at all
-
-    # --- 3. Convert to DataFrame ---
-    df = pd.DataFrame(data)
-    if df.empty:
-        return jsonify({})
-
-    df = df.rename(columns={'name': 're_name', 'name.1': 'ds_name'})
-
-    # Derive "year" column
-    if 'start_dt' in df.columns and df['start_dt'].notnull().any():
-        df['year'] = df['start_dt']
-    elif 'end_dt' in df.columns and df['end_dt'].notnull().any():
-        df['year'] = df['end_dt']
-
-    df = df.drop_duplicates()
-
-    # --- 4. Filter only African countries ---
-    african_countries = [
-        'Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon',
-        'Central African Republic', 'Chad', 'Comoros', 'Democratic Republic of the Congo', 'Republic of the Congo',
-        "Cote d'Ivoire", 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Ethiopia', 'Gabon', 'Gambia',
-        'Ghana', 'Guinea', 'Guinea Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi',
-        'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda',
-        'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa',
-        'South Sudan', 'Sudan', 'Swaziland', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'
-    ]
-
-    filtered_df = df[df['re_name'].isin(african_countries)]
-    if filtered_df.empty:
-        return jsonify({})
-
-    # --- 5. Extract unique values ---
-    years = sorted(filtered_df['year'].dropna().unique())
-    cities = sorted(filtered_df['re_name'].unique())
-    datasets = sorted(filtered_df['ds_name'].unique())
-    regions = sorted(filtered_df['african_regions'].dropna().unique())
-
-
-    options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
-    years_list = [{'optid': i, 'optname': f'Year: {y}'} for i, y in enumerate(years, start=1)]
-
-    # --- 6. Decide plot type ---
-    plot_type = 2 if len(datasets) > 1 or len(years) == 1 else 1
-
-    # --- 7. Series & colour setup ---
-    colours = [
-        '#f44336', '#03a9f4', '#4caf50', '#ffc107', '#ff5722', '#9c27b0',
-        '#8bc34a', '#ffeb3b', '#9e9e9e', '#3f51b5', '#e91e63'
-    ] * 2
-    series = {i: {'color': colours[i]} for i in range(len(datasets))}
-    view = [0] + list(range(2, len(datasets) + 2))
-
-    # --- 8. Build table headers (City, Year, Datasets..., Region) ---
-    table = [['City', 'Year'] + [str(ds) for ds in datasets] + ['Region']]
-
-    # --- 9. Fill table data ---
-    # In your Python API, fix the region appending:
-    for c in cities:
-        for y in years:
-            row = [str(c), str(y)]
-            for d in datasets:
-                datapoint = filtered_df.loc[
-                    (filtered_df["re_name"] == c) &
-                    (filtered_df["year"] == y) &
-                    (filtered_df["ds_name"] == d),
-                    "value"
-                ]
-                row.append(float(datapoint.iloc[0]) if not datapoint.empty else None)
-
-            # Append Region - handle null values properly
-            region_row = filtered_df.loc[
-                (filtered_df["re_name"] == c) &
-                (filtered_df["year"] == y),
-                "african_regions"
-            ]
-            region = region_row.iloc[0] if not region_row.empty and pd.notna(region_row.iloc[0]) else "None"
-            row.append(str(region))
-
-            table.append(row)
-
-
-    # --- 10. Optional Google DataTable (only if single dataset) ---
-    table_plot = []
-    if plot_type == 1 and datasets:
-        df_subset = filtered_df.iloc[:, [0, 1, 3]]
-        schema = [('City', 'string'), ('Year', 'string'), (datasets[0], 'number')]
-        data_table = gviz_api.DataTable(schema)
-        data_table.LoadData(df_subset.values)
-        table_plot = data_table.ToJSon(columns_order=('City', datasets[0], 'Year'))
-
-    # --- 11. Compute min/max ---
-    min_val = float(filtered_df['value'].min())
-    max_val = float(filtered_df['value'].max()) * 1.1
-
-    # --- 12. Compute yearly averages per dataset --- 
+  if include_regions:
+    payload['regions'] = sorted(filtered_df[region_column].dropna().unique())
     pivot_df = filtered_df.pivot_table(
-        index='year', columns='ds_name', values='value', aggfunc='mean'
+      index='year', columns='ds_name', values='value', aggfunc='mean'
     ).reset_index()
-
-    yearly_averages = {
-        str(int(row['year'])): {dataset: row[dataset] for dataset in datasets}
-        for _, row in pivot_df.iterrows()
-    } 
-
-    # --- 12. Final payload ---
-    payload = {
-        "plot": 1,
-        "table": table,
-        "table_plot": table_plot,
-        "colours": colours,
-        "year": str(max(years)) if years else None,
-        "series": series,
-        "view": view,
-        "plot_type": plot_type,
-        "min": min_val,
-        "max": max_val,
-        "cities": cities,
-        "options_list": options_list,
-        "years_list": years_list,
-        "years": ['Year'] + [str(y) for y in years[::-1]],
-        "regions": regions,
-        "averages": yearly_averages
+    payload['averages'] = {
+      str(int(row['year'])): {dataset: row[dataset] for dataset in datasets}
+      for _, row in pivot_df.iterrows()
     }
 
-    return jsonify(payload)
+  return payload
 
+
+def _normalize_indicator_frame(df):
+  df = df.rename(columns={'name': 're_name', 'name.1': 'ds_name'})
+  if 'start_dt' in df.columns and df['start_dt'].notnull().any():
+    df['year'] = df['start_dt']
+  elif 'end_dt' in df.columns and df['end_dt'].notnull().any():
+    df['year'] = df['end_dt']
+  return df.drop_duplicates()
+
+
+def _filter_african_countries(df):
+  return df[df['re_name'].isin(AFRICAN_COUNTRIES)]
+
+
+# -------------------- WDI --------------------
+
+@app.route('/api/indicators-list/codebook', methods=['GET'])
+def api_wdi_indicators():
+  indicators_list = [[str(indicator.id), indicator.in_name] for indicator in Indicator.query.all()]
+  return jsonify(indicators_list)
 
 
 def get_data_from_cache(indicator_id):
-    cached_data = redisClient.get(f'indicator_{indicator_id}')
-    if cached_data:
-        return json.loads(cached_data)
-    return None
-
+  cached_data = redisClient.get(f'indicator_{indicator_id}')
+  return json.loads(cached_data) if cached_data else None
 
 
 def fetch_data_from_db(indicator_id):
-    # Fetch data from the database
-    query_result = (
-                db.session.query(
-                    CbTempIndicators.re_name.label('re_name'), CbTempIndicators.start_dt,
-                    CbTempIndicators.ds_name.label('ds_name'), CbTempIndicators.value,
-                    CbTempIndicators.start_dt.label('end_dt'))
-                    .filter(CbTempIndicators.indicator_id == indicator_id) 
-                    .with_entities(
-                        CbTempIndicators.re_name,
-                        CbTempIndicators.start_dt,
-                        CbTempIndicators.ds_name,
-                        CbTempIndicators.value
-                    )
-            )
+  query_result = (
+    db.session.query(CbTempIndicators)
+    .filter(CbTempIndicators.indicator_id == indicator_id)
+    .with_entities(
+      CbTempIndicators.re_name,
+      CbTempIndicators.start_dt,
+      CbTempIndicators.ds_name,
+      CbTempIndicators.value,
+    )
+  )
 
-    # Convert query result to a JSON-serializable format
-    data = [
-        {
-            're_name': row.re_name,
-            'start_dt': row.start_dt,
-            'ds_name': row.ds_name,
-            'value': row.value
-        }
-        for row in query_result
-    ]
+  return [
+    {
+      're_name': row.re_name,
+      'start_dt': row.start_dt,
+      'ds_name': row.ds_name,
+      'value': row.value,
+    }
+    for row in query_result
+  ]
 
-    return data
 
 def store_data_in_cache(indicator_id, data):
-    # Store the data in the cache
-    redisClient.setex(f'indicator_{indicator_id}', 3600, json.dumps(data))  # Cache for 1 hour
-
-
-@app.route('/api/explore/', defaults={'check': ''})
-@app.route('/api/explore/<check>', methods=['GET', 'POST'])
-def api_explore(check):
-    if request.args.get('indicator_id'):
-        ind = request.args.get('indicator_id')
-    else:
-        ind = 76
-
-    city = request.args.getlist('city')
-    year_filter = request.args.getlist('year')
-    
-    print("indicator", ind)
-    plot = 1
-
-    # print("args", check)
-
-    # Calculate the current year
-    current_year = datetime.now().year
-
-
-
-    # codebook query
-    if check == "codebook":
-        # Attempt to fetch cached data
-        cached_data = get_data_from_cache(ind)
-        
-        if cached_data is None:
-            cached_data = fetch_data_from_db(ind)
-            store_data_in_cache(ind, cached_data) 
-        
-        if cached_data:
-            df = pd.DataFrame(cached_data)
-        else:
-            # Fetch data from the database and create a DataFrame
-            query_result = fetch_data_from_db(ind)
-            df = pd.DataFrame(query_result)
-
-        if city:
-            df = df[df['re_name'].isin(city)]
-        if year_filter:
-            years_db = db.session.query(CbYear.id).filter(CbYear.name.in_([int(yr) for yr in year_filter]))
-            valid_year_ids = [yr[0] for yr in years_db]
-            df = df[df['year_start_id'].isin(valid_year_ids)]
-
-        if df.empty:
-            return jsonify({})
-    
-        df = df.rename(columns={'name': 're_name', 'name.1': 'ds_name'})
-
-        if df['start_dt'].iloc[0]:
-            df["year"] = df["start_dt"]
-            df["start_dt"] = df["year"]
-        elif df['end_dt'].iloc[0]:
-            df["year"] = df["end_dt"]
-            del df["end_dt"]
-
-    else:
-        query = db.session.query(Region.re_name, DataPoint.year, DataSet.ds_name, DataPoint.value). \
-            filter(DataPoint.indicator_id == ind).filter(DataPoint.dataset_id == DataSet.id). \
-            filter(DataPoint.region_id == Region.id)
-        df = read_sql_query(query.statement, query.session.bind)
-        print("In else")
-
-    df = df.drop_duplicates()
-
-    filtered_df = None
-    # Calculate the year from 10 years ago
-    if request.args.get('year_ago'):
-        years_ago = current_year - int(request.args.get('year_ago'))
-        # Filter the DataFrame to get data from the previous 10 years
-        filtered_df = df[df['year'] >= years_ago]
-    # else:
-    #     years_ago = current_year - 10
-    
-
-    # Filter countries
-    countries = []
-    # if request.args.get('african') == 'african':
-    # Filter the DataFrame to get data for African countries
-    countries = [
-            'Algeria', 'Angola','Benin','Botswana','Burkina Faso',
-            'Burundi','Cabo Verde','Cameroon','Central African Republic',
-            'Chad','Comoros','Democratic Republic of the Congo',
-            'Republic of the Congo','Cote d\'Ivoire','Djibouti','Egypt',
-            'Equatorial Guinea','Eritrea','Ethiopia','Gabon','Gambia',
-            'Ghana','Guinea','Guinea Bissau','Kenya','Lesotho',
-            'Liberia','Libya','Madagascar','Malawi','Mali','Mauritania',
-            'Mauritius','Morocco','Mozambique','Namibia','Niger','Nigeria',
-            'Rwanda','Sao Tome and Principe','Senegal','Seychelles',
-            'Sierra Leone','Somalia','South Africa','South Sudan','Sudan',
-            'Swaziland','Tanzania','Togo','Tunisia','Uganda','Zambia','Zimbabwe'
-    ]
-    filtered_df = filtered_df[df['re_name'].isin(countries)] if filtered_df is not None else df[df['re_name'].isin(countries)]
-
-
-    if filtered_df.empty:
-        return jsonify({})
-
-    table = []
-    table_plot = []
-    years, cities, datasets = [list(filtered_df.year.unique()), list(filtered_df.re_name.unique()), list(filtered_df.ds_name.unique())]
-    cities = [c for c in cities]
-    options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
-    years_list = [{'optid': i, 'optname': 'Year: %s' % d} for i, d in enumerate(sorted(years), start=1)]
-
-    plot_type = 1
-    # print("Years length", len(years))
-    if (len(datasets) > 1) or (len(years) == 1):
-        plot_type = 2
-
-    colours = ['#f44336', '#03a9f4', '#4caf50', '#ffc107', '#03a9f4', '#ff5722', '#9c27b0', '#8bc34a',
-               '#ffeb3b', '#9e9e9e', '#3f51b5', '#e91e63','#f44336', '#03a9f4', '#4caf50', '#ffc107', '#03a9f4', '#ff5722', '#9c27b0', '#8bc34a',
-               '#ffeb3b', '#9e9e9e', '#3f51b5', '#e91e63']
-    print(f"len(datasets):{len(datasets)}")
-    series = {i: {'color': colours[i]} for i in range(len(datasets))}
-    view = list(range(2, len(datasets) + 2))
-    view.insert(0, 0)
-
-    minVal = min(map(float, list(df.value.unique())))
-    maxVal = max(map(float, list(df.value.unique()))) * 1.1
-
-    head = ['City', 'Year']
-    for i in datasets:
-        head.append(str(i))
-    table.append(head)
-    table_plot.append(head)
-
-
-    if plot_type == 1:
-        df_i = filtered_df.iloc[:, [0, 1, 3]]
-
-        schema = [('City', 'string'), ('Year', 'string'), ('%s' % datasets[0], 'number')]
-
-        data_table = gviz_api.DataTable(schema)
-        data_table.LoadData(df_i.values)
-        table_plot = data_table.ToJSon(columns_order=('City', '%s' % datasets[0], 'Year'))
-
-        for c in cities:
-            for y in years:
-                row = [str(c), str(y)]
-                for d in datasets:
-                    datapoint = filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (filtered_df["ds_name"] == d), "value"]
-                    if len(datapoint) == 0:
-                        row.append(None)
-                    else:
-                        row.append(
-                            float(filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (
-                            filtered_df["ds_name"] == d), "value"].iloc[0]))
-                table.append(row)
-    else:
-        for c in cities:
-            for y in years:
-                row = [str(c), str(y)]
-                for d in datasets:
-                    datapoint = filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (filtered_df["ds_name"] == d), "value"]
-                    if len(datapoint) == 0:
-                        row.append(None)
-                    else:
-                        print(f"c:{c} -"
-                              f"y: {y} -"
-                              f"d: {d}")
-                        print(filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (
-                            filtered_df["ds_name"] == d), "value"].iloc[0])
-                        row.append(
-                            float(filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (
-                            filtered_df["ds_name"] == d), "value"].iloc[0]))
-                table.append(row)
-
-    yrs = ['Year'] + [str(y) for y in years[::-1]]
-    payload = {"plot":plot, "table":table, "table_plot":table_plot,"colours":colours,"year":str(max(years)), "series":series,
-             "view":view, "plot_type":plot_type,"min":minVal,"max":maxVal, "cities":cities, "options_list":options_list,
-             "years_list":years_list, "years":yrs}
-    return jsonify(payload)
-
-# @app.route('/api/explore/', defaults={'check': ''})
-# @app.route('/api/explore/<check>', methods=['GET', 'POST'])
-# def api_explore(check):
-#     if request.args.get('indicator_id'):
-#         ind = request.args.get('indicator_id')
-#     else:
-#         ind = 76
-
-#     city = request.args.get('city')
-#     year_filter = request.args.getlist('year')
-#     print("indicator", ind)
-#     plot = 1
-#     print("args", check)
-#     # Calculate the current year
-#     current_year = datetime.now().year
-
-#     # Calculate the year from 10 years ago
-#     years_ago = current_year - 10
-
-#     # codebook query
-#     if check == "codebook":
-#         # query = db.session.query(CbRegion.name.label('re_name'), CbDataPoint.start_dt,
-#         #                          CbIndicator.name.label('ds_name'), CbDataPoint.value,
-#         #                          CbDataPoint.end_dt). \
-#         #     filter(CbDataPoint.indicator_id == ind).filter(CbDataPoint.indicator_id == CbIndicator.id). \
-#         #     filter(CbDataPoint.region_id == CbRegion.id)
-#         query = (
-#                 db.session.query(
-#                     CbTempIndicators.re_name.label('re_name'), CbTempIndicators.start_dt,
-#                     CbTempIndicators.ds_name.label('ds_name'), CbTempIndicators.value,
-#                     CbTempIndicators.start_dt.label('end_dt'))
-#                     .filter(CbTempIndicators.indicator_id == ind) 
-#                     .with_entities(
-#                         CbTempIndicators.re_name,
-#                         CbTempIndicators.start_dt,
-#                         CbTempIndicators.ds_name,
-#                         CbTempIndicators.value
-#                     )
-#             )
-#         if city:
-#             query = query.filter(CbTempIndicators.re_name == city)
-#         if year_filter:
-#             years_db = db.session.query(CbYear.id).filter(CbYear.name.in_([int(yr) for yr in year_filter]))
-#             query = query.filter(CbDataPoint.year_start_id.in_([yr[0] for yr in years_db]))
-#         if not query.first():
-#             return jsonify({})
-#         df = read_sql_query(query.statement, query.session.bind)
-#         df = df.rename(columns={'name': 're_name', 'name.1': 'ds_name'})
-#         if df['start_dt'].iloc[0]:
-#             df["year"] = df["start_dt"]
-#             df["start_dt"] = df["year"]
-#         elif df['end_dt'].iloc[0]:
-#             df["year"] = df["end_dt"]
-#             del df["end_dt"]
-
-#     else:
-#         query = db.session.query(Region.re_name, DataPoint.year, DataSet.ds_name, DataPoint.value). \
-#             filter(DataPoint.indicator_id == ind).filter(DataPoint.dataset_id == DataSet.id). \
-#             filter(DataPoint.region_id == Region.id)
-#         df = read_sql_query(query.statement, query.session.bind)
-#         print("In else")
-#     df = df.drop_duplicates()
-#     # print(app.root_path)
-#     # df.to_csv('%s/data/%s' % (app.root_path, "data_test.csv"), index=False)
-
-#     # Filter the DataFrame to get data from the previous 10 years
-#     filtered_df = df[df['year'] >= years_ago]
-
-#     table = []
-#     table_plot = []
-#     years, cities, datasets = [list(filtered_df.year.unique()), list(filtered_df.re_name.unique()), list(filtered_df.ds_name.unique())]
-#     cities = [c for c in cities]
-#     options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
-#     years_list = [{'optid': i, 'optname': 'Year: %s' % d} for i, d in enumerate(sorted(years), start=1)]
-
-#     plot_type = 1
-#     # print("Years length", len(years))
-#     if (len(datasets) > 1) or (len(years) == 1):
-#         plot_type = 2
-
-#     colours = ['#f44336', '#03a9f4', '#4caf50', '#ffc107', '#03a9f4', '#ff5722', '#9c27b0', '#8bc34a',
-#                '#ffeb3b', '#9e9e9e', '#3f51b5', '#e91e63','#f44336', '#03a9f4', '#4caf50', '#ffc107', '#03a9f4', '#ff5722', '#9c27b0', '#8bc34a',
-#                '#ffeb3b', '#9e9e9e', '#3f51b5', '#e91e63']
-#     print(f"len(datasets):{len(datasets)}")
-#     series = {i: {'color': colours[i]} for i in range(len(datasets))}
-#     view = list(range(2, len(datasets) + 2))
-#     view.insert(0, 0)
-
-#     minVal = min(map(float, list(df.value.unique())))
-#     maxVal = max(map(float, list(df.value.unique()))) * 1.1
-
-#     head = ['City', 'Year']
-#     for i in datasets:
-#         head.append(str(i))
-#     table.append(head)
-#     table_plot.append(head)
-
-
-#     if plot_type == 1:
-#         df_i = filtered_df.iloc[:, [0, 1, 3]]
-
-#         schema = [('City', 'string'), ('Year', 'string'), ('%s' % datasets[0], 'number')]
-
-#         data_table = gviz_api.DataTable(schema)
-#         data_table.LoadData(df_i.values)
-#         table_plot = data_table.ToJSon(columns_order=('City', '%s' % datasets[0], 'Year'))
-
-#         for c in cities:
-#             for y in years:
-#                 row = [str(c), str(y)]
-#                 for d in datasets:
-#                     datapoint = filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (filtered_df["ds_name"] == d), "value"]
-#                     if len(datapoint) == 0:
-#                         row.append(None)
-#                     else:
-#                         row.append(
-#                             float(filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (
-#                             filtered_df["ds_name"] == d), "value"].iloc[0]))
-#                 table.append(row)
-#     else:
-#         for c in cities:
-#             for y in years:
-#                 row = [str(c), str(y)]
-#                 for d in datasets:
-#                     datapoint = filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (filtered_df["ds_name"] == d), "value"]
-#                     if len(datapoint) == 0:
-#                         row.append(None)
-#                     else:
-#                         print(f"c:{c} -"
-#                               f"y: {y} -"
-#                               f"d: {d}")
-#                         print(filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (
-#                             filtered_df["ds_name"] == d), "value"].iloc[0])
-#                         row.append(
-#                             float(filtered_df.loc[(filtered_df["re_name"] == c) & (filtered_df["year"] == y) & (
-#                             filtered_df["ds_name"] == d), "value"].iloc[0]))
-#                 table.append(row)
-
-#     yrs = ['Year'] + [str(y) for y in years[::-1]]
-#     payload = {"plot":plot, "table":table, "table_plot":table_plot,"colours":colours,"year":str(max(years)), "series":series,
-#              "view":view, "plot_type":plot_type,"min":minVal,"max":maxVal, "cities":cities, "options_list":options_list,
-#              "years_list":years_list, "years":yrs}
-#     return jsonify(payload)
-
-
-
-@app.route('/api/indicator/<int:indicator_id>', methods=['GET', 'POST'])
-def api_indicators(indicator_id):
-    if not indicator_id:
-        message = 'No indicator selected'
-        resp = jsonify(response_message=message)
-        resp.status_code = 404
-        return resp
-    # codebook query
-    indicators = db.session.query(CbRegion.name.label('re_name'), CbDataPoint.start_dt.cast(Date),
-                             CbIndicator.name.label('ds_name'), CbDataPoint.value,
-                             CbDataPoint.end_dt.cast(Date)). \
-        filter(CbDataPoint.indicator_id == indicator_id).filter(CbDataPoint.indicator_id == CbIndicator.id). \
-        filter(CbDataPoint.region_id == CbRegion.id).all()
-    if indicators:
-        resp = jsonify(indicators)
-        resp.status_code = 200
-        return resp
-    else:
-        message = 'No indicator selected'
-        resp = jsonify(response_message=message)
-        resp.status_code = 404
-        return resp
-
-@app.route('/explore', methods=['GET', 'POST'])
-def explore():
-    analyses = []
-
-    if current_user.is_authenticated:
-        query = db.session.query(UserAnalysis.id, UserAnalysis.ds_name, UserAnalysis.description) \
-            .filter(UserAnalysis.user_id == current_user.id).order_by(UserAnalysis.id.desc())
-
-        analyses = []
-
-        for i in grouper(query, 4):
-            analyses.append(i)
-
-    session['explore'] = []
-    form = ExploreForm()
-    status = 200
-    plot = 0
-    tour = 1
-    if request.method == 'POST':
-        if form.validate():
-            plot = 1
-            tour = 2
-
-            ind = form.indicator_id.data
-
-            query = db.session.query(Region.re_name, DataPoint.year, DataSet.ds_name, DataPoint.value). \
-                filter(DataPoint.indicator_id == ind).filter(DataPoint.dataset_id == DataSet.id). \
-                filter(DataPoint.region_id == Region.id)
-            print(query.all())
-            indicator = Indicator.query.get(ind)
-
-            df = read_sql_query(query.statement, query.session.bind)
-            # df.to_csv('%s/data/%s' % (app.root_path, "data_test.csv"), index=False)
-            table = []
-            years, cities, datasets = [list(df.year.unique()), list(df.re_name.unique()), list(df.ds_name.unique())]
-            cities = [c for c in cities]
-
-            options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
-            years_list = [{'optid': i, 'optname': 'Year: %s' % d} for i, d in enumerate(sorted(years), start=1)]
-
-            plot_type = 1
-            if (len(datasets) > 1) or (len(years) == 1):
-                plot_type = 2
-
-            colours = ['#f44336', '#03a9f4', '#4caf50', '#ffc107', '#03a9f4', '#ff5722', '#9c27b0', '#8bc34a',
-                       '#ffeb3b', '#9e9e9e', '#3f51b5', '#e91e63']
-            series = {i: {'color': colours[i]} for i in range(len(datasets))}
-            view = list(range(2, len(datasets) + 2))
-            view.insert(0, 0)
-
-            minVal = min(map(float, list(df.value.unique())))
-            maxVal = max(map(float, list(df.value.unique()))) * 1.1
-
-            head = ['City', 'Year']
-            for i in datasets:
-                head.append(str(i))
-            table.append(head)
-            print(df)
-            # df.re_name = df.re_name.str.encode('utf-8')
-            if plot_type == 1:
-                df = df.iloc[:, [0, 1, 3]]
-
-                schema = [('City', 'string'), ('Year', 'string'), ('%s' % datasets[0], 'number')]
-
-                data_table = gviz_api.DataTable(schema)
-                data_table.LoadData(df.values)
-                table = data_table.ToJSon(columns_order=('City', '%s' % datasets[0], 'Year'))
-
-            else:
-                for c in cities:
-                    for y in years:
-                        row = [str(c), str(y)]
-                        for d in datasets:
-                            datapoint = df.loc[(df["re_name"] == c) & (df["year"] == y) & (df["ds_name"] == d), "value"]
-                            if len(datapoint) == 0:
-                                row.append(None)
-                            else:
-                                row.append(
-                                    float(df.loc[(df["re_name"] == c) & (df["year"] == y) & (
-                                    df["ds_name"] == d), "value"]))
-                        table.append(row)
-            yrs = ['Year'] + [str(y) for y in years[::-1]]
-            return render_template('explore/explore.html', form=form, plot=plot, table=table, colours=colours,
-                                   year=str(max(years)), series=series, view=view, plot_type=plot_type, min=minVal,
-                                   max=maxVal, cities=cities, options_list=options_list, years_list=years_list,
-                                   tour=tour, indicator=indicator, analyses=analyses, years=yrs)
-        else:
-            if request.is_xhr:
-                status = 412
-            else:
-                flash('Please correct the problems below and try again.', 'warning')
-
-    else:
-        return render_template('explore/explore.html', form=form, tour=tour)
-
-    if not request.is_xhr:
-        resp = make_response(
-            render_template('explore/explore.html', form=form, plot=plot, tour=tour, analyses=analyses))
-
-    else:
-        resp = ''
-
-    return (resp, status,
-            # ensure the browser refreshes the page when Back is pressed
-            {'Cache-Control': 'no-cache, no-store, must-revalidate'})
-
-@app.route('/api-temp/explore/')
-def api_explore_temp():
-    indicator_id = request.args.get('indicator_id')
-    city = request.args.get('city')
-    year_filter = request.args.getlist('year')
-    # non codebook query
-    query = db.session.query(CbTempIndicators.re_name, CbTempIndicators.start_dt,
-                             CbTempIndicators.ds_name, CbTempIndicators.value,
-                             CbTempIndicators.year).filter(CbTempIndicators.indicator_id == indicator_id)
-    if not query.first():
-        return jsonify({})
-    if city:
-        query = query.filter(CbTempIndicators.re_name == city)
-    if year_filter:
-        query = query.filter(CbTempIndicators.year.in_([int(yr) for yr in year_filter]))
-    df = read_sql_query(query.statement, query.session.bind)
-    df = df.drop_duplicates()
-
-    table = []
-    years, cities, datasets = [list(df.year.unique()), list(df.re_name.unique()), list(df.ds_name.unique())]
-    cities = list(cities)
-    options_list = [{'optid': i, 'optname': d} for i, d in enumerate(datasets, start=1)]
-
-    minVal = min(map(float, list(df.value.unique())))
-    maxVal = max(map(float, list(df.value.unique()))) * 1.1
-
-    head = ['City', 'Year']
-    for i in datasets:
-        head.append(str(i))
-    table.append(head)
-
-    for c, y in product(cities, years):
-        row = [str(c), str(y)]
-        for d in datasets:
-            datapoint = df.loc[(df["re_name"] == c) & (df["year"] == y) & (df["ds_name"] == d), "value"]
-            if len(datapoint) == 0:
-                row.append(None)
-            else:
-                row.append(
-                    float(df.loc[(df["re_name"] == c) & (df["year"] == y) & (
-                    df["ds_name"] == d), "value"]))
-        table.append(row)
-    yrs = ['Year'] + [str(y) for y in years[::-1]]
-    payload = {"table":table,"year":str(max(years)),"min":minVal,"max":maxVal,
-               "cities":cities,
-               "options_list":options_list,
-              "years":yrs}
-    return jsonify(payload)
-
-@app.route('/search-api', methods=['GET', 'POST'])
-def api_search():
-    form = APIForm()
-    if request.method == 'POST' and form.validate():
-
-        print(request.data)
-    return render_template('indicators-api/generate-api.html',form=form,form_url='/search-api')
-
-@app.route('/api/codebook', methods=['GET', 'POST'])
-@app.route('/api/codebook/<int:page>', methods=['GET', 'POST'])
-@csrf.exempt
-def api_codebook(page=1):
-    codebook_redis = "codebook-api"
-    store_in_redis = False
-    if request.method == 'GET':
-        if redisClient.exists(codebook_redis):
-            result_list = json.loads(redisClient.get(codebook_redis))
-            return jsonify(result_list)
-        store_in_redis = True
-    query = db.session.query(CbIndicator). \
-        outerjoin(CbTheme, CbTheme.id == CbIndicator.theme_id). \
-        outerjoin(CbSource, CbSource.id == CbIndicator.source_id). \
-        outerjoin(CbUnit, CbUnit.id == CbIndicator.unit_id)
-
-    if request.method == 'POST':
-        data = request.get_json()
-        print(f'data: {data}')
-        if data['c88']:
-            query = query.filter(CbIndicator.c88_theme.in_(data['c88']))
-
-        if data['socr']:
-            query = query.filter(CbIndicator.socr_theme.in_(data['socr']))
-
-        if data['sdg']:
-            query = query.filter(CbIndicator.sdg_theme.in_(data['sdg']))
-
-        if data['search']:
-            query = search(query, data['search'], sort=True)
-
-    # else:
-    #     query = query.limit(150).offset((page - 1) * 20)
-
-    row_count = query.count()
-    query = query.all()
-    # query.sort(key=lambda x: x.code)
-
-    result_list = [row_count]
-    for day, dicts_for_group_code in itertools.groupby(query, key=lambda x:x.group_code):
-        dicts_for_group_code = list(dicts_for_group_code)
-        day_dict = {
-            "id": str(dicts_for_group_code[0].id),
-            "varCode": dicts_for_group_code[0].code,
-            "groupCode": dicts_for_group_code[0].group_code,
-            "indicator": dicts_for_group_code[0].name,
-            "c88": dicts_for_group_code[0].c88_theme,
-            "socr": dicts_for_group_code[0].socr_theme,
-            "sdg": dicts_for_group_code[0].sdg_theme,
-            "definition": dicts_for_group_code[0].definition,
-            "source": dicts_for_group_code[0].source.name if dicts_for_group_code[0].source else None,
-            "reportingResponsibility": dicts_for_group_code[0].reporting_responsibility,
-            "notesOnCalculation": dicts_for_group_code[0].notes_on_calculation,
-            "variableType": dicts_for_group_code[0].unit.name if dicts_for_group_code[0].unit else None,
-            "frequencyOfCollection": dicts_for_group_code[0].frequency_of_collection,
-            "automatibility": dicts_for_group_code[0].automatable,
-            "granulity": dicts_for_group_code[0].granularity,
-            "gathering_method": dicts_for_group_code[0].gathering_method,
-            "expandability": dicts_for_group_code[0].expandable,
-            "period": dicts_for_group_code[0].period,
-            "unit_of_measurement": dicts_for_group_code[0].unit.name if dicts_for_group_code[0].unit else None,
-            "source_link": dicts_for_group_code[0].url_link,
-            "data_check":True if dicts_for_group_code[0].indicator_data else False
-        }
-        children = []
-        dicts_for_group_code.pop(0)
-        for d in dicts_for_group_code:
-            child = {
-                "id": str(d.id),
-                "varCode": d.code,
-                "groupCode": d.group_code,
-                "indicator": d.name,
-                "c88": d.c88_theme,
-                "socr": d.socr_theme,
-                "sdg": d.sdg_theme,
-                "definition": d.definition,
-                "source": d.source.name if d.source else None,
-                "reportingResponsibility": d.reporting_responsibility,
-                "notesOnCalculation": d.notes_on_calculation,
-                "variableType": d.unit.name if d.unit else None,
-                "frequencyOfCollection": d.frequency_of_collection,
-                "automatibility": d.automatable,
-                "granulity": d.granularity,
-                "gathering_method": d.gathering_method,
-                "expandability": d.expandable,
-                "period": d.period,
-                "unit_of_measurement": d.unit.name if d.unit else None,
-                "source_link": d.url_link,
-                "data_check": bool(d.indicator_data),
-            }
-
-            children.append(child)
-        day_dict.update({"children": children})
-        result_list.append(day_dict)
-    if store_in_redis:
-        redisClient.set(codebook_redis, json.dumps(result_list))
-    return jsonify(result_list)
-
-class IndicatorService():
-
-    def __init__(self):
-        self.safe = 1
-
-    def df_temp_query(self,city:str,year_filter,indicator_id:int):
-        # non codebook query
-        query = db.session.query(CbTempIndicators.re_name, CbTempIndicators.start_dt,
-                                 CbTempIndicators.ds_name, CbTempIndicators.value,
-                                 CbTempIndicators.year).filter(CbTempIndicators.indicator_id == indicator_id)
-        if city:
-            query = query.filter(CbTempIndicators.re_name == city)
-        if year_filter:
-            query = query.filter(CbTempIndicators.year.in_([int(yr) for yr in year_filter]))
-        df = read_sql_query(query.statement, query.session.bind)
-        df = df.drop_duplicates()
-        return df
-
-    def df_query(self,city:str,year_filter,indicator_id:int):
-        query = db.session.query(CbRegion.name.label('re_name'), CbDataPoint.start_dt,
-                                 CbIndicator.name.label('ds_name'), CbDataPoint.value,
-                                 CbDataPoint.end_dt). \
-            filter(CbDataPoint.indicator_id == indicator_id).filter(CbDataPoint.indicator_id == CbIndicator.id). \
-            filter(CbDataPoint.region_id == CbRegion.id)
-        if city:
-            query = query.filter(CbRegion.name == city)
-        if year_filter:
-            try:
-                if not year_filter[0] == "all":
-                    years_db = db.session.query(CbYear.id).filter(CbYear.name.in_([int(yr) for yr in year_filter]))
-                    query = query.filter(CbDataPoint.year_start_id.in_([yr[0] for yr in years_db]))
-            except Exception as e:
-                print(e)
-        df = read_sql_query(query.statement, query.session.bind)
-
-        df = df.rename(columns={'name': 're_name', 'name.1': 'ds_name'})
-        if not query.first():
-            # No data found
-            return df
-        if df['start_dt'].iloc[0]:
-            df["year"] = df["start_dt"].apply(lambda x: int(x.strftime('%Y')))
-            df["start_dt"] = df["year"]
-        elif df['end_dt'].iloc[0]:
-            df["year"] = df["end_dt"].apply(lambda x: int(x.strftime('%Y')))
-            df["start_dt"] = df["year"]
-            del df["end_dt"]
-        df = df.drop_duplicates()
-        return df
-
-    def average_calculation(self,city:str,year_filter,indicator_id:int,temp_indicator_check:bool):
-        if temp_indicator_check:
-            df = self.df_temp_query(city=city,indicator_id=indicator_id,year_filter=year_filter)
-        else:
-            df = self.df_query(city=city,indicator_id=indicator_id,year_filter=year_filter)
-        if df.empty:
-            return jsonify({"message": "No data found"}), 400
-        if not year_filter:
-            df = df.loc[df['year'] == df['year'].max()]
-        years, cities, datasets = [list(df.year.unique()), list(df.re_name.unique()), list(df.ds_name.unique())]
-        total_average = df['value'].sum() / len(cities)  / len(years)
-        yearly_average_list =[]
-        for y in years:
-            year_data = df.loc[df['year'] == y]
-            yearly_average = year_data['value'].sum() / len(cities)
-            yearly_average_list.append({'year':str(y),'city_average':round(yearly_average,2)})
-        return jsonify({'indicators':datasets,
-                        'total_average':round(total_average,2),
-                        'yearly_averages':yearly_average_list,
-                        'cities':cities})
+  redisClient.setex(f'indicator_{indicator_id}', 3600, json.dumps(data))
+
+
+@app.route('/api/explore/codebook', methods=['GET', 'POST'])
+def api_wdi_explore():
+  indicator_id = request.args.get('indicator_id', 76)
+  cities = request.args.getlist('city')
+
+  cached_data = get_data_from_cache(indicator_id)
+  if cached_data is None:
+    cached_data = fetch_data_from_db(indicator_id)
+    store_data_in_cache(indicator_id, cached_data)
+
+  if not cached_data:
+    return jsonify({})
+
+  df = pd.DataFrame(cached_data)
+  if cities:
+    df = df[df['re_name'].isin(cities)]
+  if df.empty:
+    return jsonify({})
+
+  df = _normalize_indicator_frame(df)
+  filtered_df = _filter_african_countries(df)
+  if filtered_df.empty:
+    return jsonify({})
+
+  return jsonify(_build_explore_payload(filtered_df))
+
+
+# -------------------- FINDEX --------------------
+
+def get_findex_data_from_cache(indicator_id):
+  key = f'findex:core_financial_inclusion:indicator_{indicator_id}'
+  cached_data = redisClient.get(key)
+  return json.loads(cached_data) if cached_data else None
+
+
+def store_findex_data_in_cache(indicator_id, data):
+  key = f'findex:core_financial_inclusion:indicator_{indicator_id}'
+  redisClient.setex(key, 3600, json.dumps(data))
+
+
+def fetch_findex_data_from_db(indicator_id):
+  query_result = (
+    db.session.query(
+      CoreFinancialInclusion.countrynewwb,
+      CoreFinancialInclusion.year,
+      CoreFinancialInclusion.indicator_name,
+      CoreFinancialInclusion.africanunion_region,
+      CoreFinancialInclusion.value,
+    )
+    .filter(CoreFinancialInclusion.indicator_id == indicator_id)
+    .all()
+  )
+
+  return [
+    {
+      're_name': row.countrynewwb,
+      'start_dt': row.year,
+      'ds_name': row.indicator_name,
+      'value': float(row.value) if row.value is not None else None,
+      'african_regions': row.africanunion_region,
+    }
+    for row in query_result
+  ]
+
+
+@app.route('/api/findex/indicators-list/codebook', methods=['GET'])
+def api_findex_indicators():
+  indicators_list = [
+    [str(indicator.id), indicator.indicator_name.capitalize(), indicator.short_definition]
+    for indicator in FindexIndicator.query.all()
+  ]
+  return jsonify(indicators_list)
+
+
+@app.route('/api/findex/codebook', methods=['GET', 'POST'])
+def api_findex_explore():
+  indicator_id = request.args.get('indicator_id', 76, type=int)
+
+  data = get_findex_data_from_cache(indicator_id)
+  if data is None:
+    data = fetch_findex_data_from_db(indicator_id)
+    store_findex_data_in_cache(indicator_id, data)
+
+  if not data:
+    return jsonify({})
+
+  df = pd.DataFrame(data)
+  if df.empty:
+    return jsonify({})
+
+  df = _normalize_indicator_frame(df)
+  filtered_df = _filter_african_countries(df)
+  if filtered_df.empty:
+    return jsonify({})
+
+  return jsonify(_build_explore_payload(filtered_df, include_regions=True))

@@ -1,6 +1,9 @@
 .select2 {
 
-  
+  .select2-container .select2-search__field {
+    display: block !important;
+  }
+
   // NOTICE
   // This component uses the select2 plugin, to which most of these styles are attached to.
   &--label {
@@ -15,7 +18,7 @@
   margin: 0;
   width: 100% !important;
   &-container {
-    display: block;
+    display: block !important;
     &--open {
       .select2-selection__arrow::before {
         transform: rotate(180deg);
@@ -129,7 +132,7 @@
   }
   &-search {
     &--inline {
-    display: block;
+    display: block !important;
     width: 100% !important;
     margin-bottom: 0;
   }
@@ -138,6 +141,7 @@
       // padding-top: 5px !important;
       width: 100% !important;
       font-weight: 500;
+      display: block !important;
     }
   }
   &-dropdown {
@@ -163,9 +167,18 @@
   }
 }
 
+.select2-search {
+  display: block !important;
+}
+
 span.select2-selection.select2-selection--single,span.select2-selection.select2-selection--multiple {
   border-radius: 18px;
 }
 input.select2-search__field {
-  display: none;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+
 }

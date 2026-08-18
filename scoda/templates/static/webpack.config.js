@@ -5,11 +5,7 @@ const CompressionPlugin = require("compression-webpack-plugin");
 const config = {
 
   entry: {
-
-    toolkit: ['react-app-polyfill/ie9', 'react-app-polyfill/stable', __dirname + '/js/toolkit.jsx'],
-    home: __dirname + '/js/home.jsx',
-    socr: __dirname + '/js/socr.jsx',
-    about: __dirname + '/js/about.jsx',
+    home: __dirname + '/js/home.js',
   },
   output: {
 

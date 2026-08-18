@@ -1,8 +1,5 @@
 import React, { Component } from "react";
 
-import $, { data } from "jquery";
-import { Canvg } from "canvg";
-
 import IndicatorExplorerDataChart from "../components/IndicatorExplorer.Data.Charts";
 import IndicatorExplorerDataTable from "../components/IndicatorExplorer.Data.Table";
 import IndicatorExplorerDataMap from "../components/IndicatorExplorer.Data.Maps";
@@ -16,62 +13,6 @@ export default class IndicatorExplorerDataBox extends Component {
     this.state = {
       csv: [],
     };
-  }
-
-  componentDidMount() {
-    if (this.props.results.length > 0) {
-      this.loadGoogleVizApi(this.props.results, this.props.filterYear);
-    }
-  }
-
-  componentDidUpdate() {
-    if (this.props.results.length !== 0) {
-      this.loadGoogleVizApi(this.props.results, this.props.filterYear);
-    }
-  }
-
-  loadGoogleVizApi(dataSet, selectedYear) {
-    var options = {
-      dataType: "script",
-      cache: true,
-      url: "https://www.google.com/jsapi",
-    };
-
-    $.ajax(options).done(function () {
-      google.load("visualization", "1", {
-        packages: ["controls", "bar", "corechart", "geochart"],
-        callback: function () {
-          var data = new google.visualization.DataTable();
-
-          dataSet = dataSet.table;
-
-          let rows = [];
-          let rowHeader = [];
-          for (let i = 0; i <= dataSet[0].length - 1; i++) {
-            rowHeader.push(dataSet[0][i]);
-          }
-
-          rows.push(rowHeader);
-
-          for (let j = 1; j <= dataSet.length - 1; j++) {
-            let rowItem = dataSet[j];
-            let row = [];
-            if (rowItem[1].toString() === selectedYear) {
-              for (let k = 0; k < rowItem.length; k++) {
-                row.push(rowItem[k].toString());
-              }
-              rows.push(row);
-            }
-          }
-
-          var data = new google.visualization.DataTable(
-            document.getElementById("table")
-          );
-          var csvData = google.visualization.dataTableToCsv(data);
-
-        },
-      });
-    });
   }
 
   renderDataSet(dataSetType, filter) {

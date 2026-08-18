@@ -1,41 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    {% include 'snippets/header.html' %}
+  <meta charset="utf-8">
+  <title>Bad request</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
 </head>
-
-<body>
-    <div class="container d-table">
-        <div class="d-100vh-va-middle">
-            <div class="row">
-                <div class="col-md-6 offset-md-3">
-                    <div class="clearfix">
-                        <h1 class="float-xs-left display-3 mr-2">400</h1>
-                        <h4 class="pt-1">Oh dear, the security session has timed out!</h4>
-                        <p class="text-muted">To prevent cross-site request forgeries (hacking), pages with forms have a 1 hr timeout. </p>
-                        <p class="text-muted">You can <a href="{{ base|safe }}">re-load the page you were on</a>, {% if current_user.is_authenticated %}<a href="{{ url_for('city_dashboard') }}">return to your dashboard</a>{% else %}<a href="{{ url_for('home_public') }}">return to the homepage</a>{% endif %}, or <a href="{{ url_for('contact') }}">contact us!</a></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {% include 'snippets/footer.html' %}
-
-    <script src="../../static/vendor/jquery/jquery.min.js"></script>
-    <script src="../../static/vendor/tether/js/tether.min.js"></script>
-    <script src="../../static/vendor/bootstrap/js/bootstrap.min.js"></script>
-    <script src="../../static/vendor/pace/pace.min.js"></script>
-
-    <!-- Plugins and scripts required by all views -->
-    <script src="../../static/vendor/plotly/plotly-latest.min.js"></script>
-    <script src="../../static/js/app.js"></script>
-
-    <!-- Plugins and scripts required by this views -->
-
-    <!-- Custom scripts required by this view -->
-    <script src="../../static/js/views/main.js"></script>
-
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="display-4">400</h1>
+    <p class="lead">The request could not be processed.</p>
+    <a class="btn btn-primary" href="/home/">Return to Data Explorer</a>
+  </div>
 </body>
-
 </html>
